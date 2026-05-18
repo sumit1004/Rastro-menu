@@ -1,0 +1,217 @@
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils } from 'lucide-react';
+import api from '../services/api';
+import Card from '../components/Card';
+import Button from '../components/Button';
+import Input from '../components/Input';
+import Modal from '../components/Modal';
+import Loader from '../components/Loader';
+
+const ManageDishes = () => {
+  const [dishes, setDishes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [restaurantId, setRestaurantId] = useState(null);
+  
+  const [formData, setFormData] = useState({
+    name: '', short_description: '', description: '', ingredients: '',
+    category: '', price: '', spice_level: '0', calories: '', 
+    preparation_time: '', is_available: true, is_featured: false
+  });
+  const [imageFile, setImageFile] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const fetchDishes = async (restId) => {
+    try {
+      const { data } = await api.get(`/dishes/restaurant/${restId}`);
+      setDishes(data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const { data } = await api.get('/restaurants/my-profile');
+        setRestaurantId(data.id);
+        await fetchDishes(data.id);
+      } catch (error) {
+        console.error("Error fetching profile or dishes", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
+  }, []);
+
+  const handleChange = (e) => {
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    setFormData({ ...formData, [e.target.id]: value });
+  };
+
+  const handleOpenModal = (dish = null) => {
+    if (dish) {
+      setEditingId(dish.id);
+      setFormData({
+        name: dish.name, short_description: dish.short_description || '', 
+        description: dish.description || '', ingredients: dish.ingredients || '',
+        category: dish.category, price: dish.price, spice_level: dish.spice_level, 
+        calories: dish.calories || '', preparation_time: dish.preparation_time || '', 
+        is_available: dish.is_available, is_featured: dish.is_featured
+      });
+    } else {
+      setEditingId(null);
+      setFormData({
+        name: '', short_description: '', description: '', ingredients: '',
+        category: '', price: '', spice_level: '0', calories: '', 
+        preparation_time: '', is_available: true, is_featured: false
+      });
+    }
+    setImageFile(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+
+    const submitData = new FormData();
+    Object.keys(formData).forEach(key => submitData.append(key, formData[key]));
+    if (imageFile) submitData.append('image', imageFile);
+
+    try {
+      if (editingId) {
+        await api.put(`/dishes/${editingId}`, submitData);
+      } else {
+        await api.post('/dishes', submitData);
+      }
+      setIsModalOpen(false);
+      await fetchDishes(restaurantId);
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error saving dish');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this dish?")) {
+      try {
+        await api.delete(`/dishes/${id}`);
+        await fetchDishes(restaurantId);
+      } catch (error) {
+        alert('Error deleting dish');
+      }
+    }
+  };
+
+  if (loading) return <Loader />;
+
+  if (!restaurantId) {
+    return (
+      <div>
+        <h2>Manage Dishes</h2>
+        <Card className="mt-4">
+          <p className="text-center">Please complete your Restaurant Profile first before adding dishes.</p>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="dashboard-page-header">
+        <div>
+          <h2>Manage Dishes</h2>
+          <p className="text-muted">Add, edit, or remove dishes from your menu.</p>
+        </div>
+        <Button onClick={() => handleOpenModal()} icon={<Plus size={18} />}>Add New Dish</Button>
+      </div>
+
+      <div className="dishes-list" style={{ display: 'grid', gap: '1rem' }}>
+        {dishes.length === 0 ? (
+          <Card className="text-center p-8">
+            <Utensils size={48} className="text-muted mx-auto mb-4" />
+            <h3>No dishes yet</h3>
+            <p className="text-muted mb-4">Start building your menu by adding your first dish.</p>
+            <Button onClick={() => handleOpenModal()}>Add Dish</Button>
+          </Card>
+        ) : (
+          dishes.map(dish => (
+            <Card key={dish.id} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+              <div style={{ width: '80px', height: '80px', borderRadius: '0.5rem', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {dish.thumbnail_url ? (
+                  <img src={`http://localhost:5000${dish.thumbnail_url}`} alt={dish.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <ImageIcon className="text-muted" />
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <h4 style={{ fontSize: '1.125rem' }}>{dish.name}</h4>
+                <p className="text-muted" style={{ fontSize: '0.875rem' }}>{dish.category} • ${dish.price}</p>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  {!dish.is_available && <span style={{ fontSize: '0.75rem', padding: '0.125rem 0.375rem', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '1rem' }}>Unavailable</span>}
+                  {dish.is_featured && <span style={{ fontSize: '0.75rem', padding: '0.125rem 0.375rem', backgroundColor: '#fef3c7', color: '#92400e', borderRadius: '1rem' }}>Featured</span>}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Button variant="outline" style={{ padding: '0.5rem' }} onClick={() => handleOpenModal(dish)}><Edit2 size={16} /></Button>
+                <Button variant="outline" style={{ padding: '0.5rem', color: '#ef4444', borderColor: '#ef4444' }} onClick={() => handleDelete(dish.id)}><Trash2 size={16} /></Button>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Dish" : "Add New Dish"}>
+        <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1rem' }}>
+          <Input label="Dish Name*" id="name" value={formData.name} onChange={handleChange} required />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <Input label="Category*" id="category" value={formData.category} onChange={handleChange} required />
+            <Input label="Price ($)*" type="number" step="0.01" id="price" value={formData.price} onChange={handleChange} required />
+          </div>
+          <Input label="Short Description" id="short_description" value={formData.short_description} onChange={handleChange} maxLength="100" />
+          
+          <div className="form-group">
+            <label className="form-label">Full Description</label>
+            <textarea id="description" className="form-control" rows="3" value={formData.description} onChange={handleChange}></textarea>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Ingredients (comma separated)</label>
+            <textarea id="ingredients" className="form-control" rows="2" value={formData.ingredients} onChange={handleChange}></textarea>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+            <Input label="Spice Level (0-3)" type="number" min="0" max="3" id="spice_level" value={formData.spice_level} onChange={handleChange} />
+            <Input label="Calories" type="number" id="calories" value={formData.calories} onChange={handleChange} />
+            <Input label="Prep Time (mins)" type="number" id="preparation_time" value={formData.preparation_time} onChange={handleChange} />
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Dish Image</label>
+            <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="form-control" />
+          </div>
+
+          <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input type="checkbox" id="is_available" checked={formData.is_available} onChange={handleChange} />
+              Available
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input type="checkbox" id="is_featured" checked={formData.is_featured} onChange={handleChange} />
+              Featured
+            </label>
+          </div>
+
+          <Button type="submit" loading={saving} className="mt-4">
+            {editingId ? "Update Dish" : "Add Dish"}
+          </Button>
+        </form>
+      </Modal>
+    </div>
+  );
+};
+
+export default ManageDishes;
