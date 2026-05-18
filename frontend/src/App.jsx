@@ -11,6 +11,7 @@ import DashboardLayout from './dashboard/DashboardLayout';
 import DashboardOverview from './dashboard/DashboardOverview';
 import RestaurantProfile from './dashboard/RestaurantProfile';
 import ManageDishes from './dashboard/ManageDishes';
+import ManageReviews from './dashboard/ManageReviews';
 import QRMenu from './dashboard/QRMenu';
 import PublicMenu from './menu/PublicMenu';
 
@@ -41,6 +42,7 @@ const AppRoutes = () => {
         <Route index element={<DashboardOverview />} />
         <Route path="profile" element={<RestaurantProfile />} />
         <Route path="dishes" element={<ManageDishes />} />
+        <Route path="reviews" element={<ManageReviews />} />
         <Route path="qr-menu" element={<QRMenu />} />
       </Route>
     </Routes>

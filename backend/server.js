@@ -36,12 +36,14 @@ const authRoutes = require('./routes/authRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
 const dishRoutes = require('./routes/dishRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/dishes', dishRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

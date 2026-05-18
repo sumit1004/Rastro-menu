@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { optimizeImage } = require('../utils/imageOptimizer');
+const { enhanceImage } = require('../services/imageEnhancer');
 
 // Helper to get restaurant_id from user_id
 const getRestaurantId = async (userId) => {
@@ -43,25 +44,40 @@ const addDish = async (req, res) => {
     const restaurantId = await getRestaurantId(req.user.id);
     if (!restaurantId) return res.status(400).json({ message: 'Please create a restaurant profile first' });
 
-    const { 
-      name, short_description, description, ingredients, category, 
-      price, spice_level, calories, preparation_time, is_available, is_featured 
-    } = req.body;
+    const name = req.body.name;
+    const short_description = req.body.short_description || null;
+    const description = req.body.description || null;
+    const ingredients = req.body.ingredients || null;
+    const category = req.body.category || null;
+    const price = req.body.price || 0;
+    const spice_level = req.body.spice_level || 0;
+    const calories = req.body.calories || null;
+    const preparation_time = req.body.preparation_time || null;
+    const is_available = req.body.is_available === 'true' || req.body.is_available === true;
+    const is_featured = req.body.is_featured === 'true' || req.body.is_featured === true;
+    const ai_description = req.body.ai_description || null;
+    const taste_tags = req.body.taste_tags;
+    const ai_category = req.body.ai_category || null;
 
     let imageUrl = null;
     let thumbnailUrl = null;
+    let aiEnhancedImage = null;
 
     if (req.file) {
       imageUrl = await optimizeImage(req.file.buffer, `dish-${Date.now()}`, 'dishes');
-      // For MVP, we can use the same image URL for thumbnail
       thumbnailUrl = imageUrl; 
+      try {
+        aiEnhancedImage = await enhanceImage(req.file.buffer, `dish-${Date.now()}`, 'dishes');
+      } catch (err) {
+        console.error("Image enhancement failed:", err);
+      }
     }
 
     const [result] = await pool.query(
       `INSERT INTO dishes 
-      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available === 'true' || is_available === true, is_featured === 'true' || is_featured === true]
+      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category]
     );
 
     res.status(201).json({ message: 'Dish added', id: result.insertId });
@@ -82,26 +98,42 @@ const updateDish = async (req, res) => {
     const [existing] = await pool.query('SELECT * FROM dishes WHERE id = ? AND restaurant_id = ?', [dishId, restaurantId]);
     if (existing.length === 0) return res.status(404).json({ message: 'Dish not found or unauthorized' });
 
-    const { 
-      name, short_description, description, ingredients, category, 
-      price, spice_level, calories, preparation_time, is_available, is_featured 
-    } = req.body;
+    const name = req.body.name;
+    const short_description = req.body.short_description || null;
+    const description = req.body.description || null;
+    const ingredients = req.body.ingredients || null;
+    const category = req.body.category || null;
+    const price = req.body.price || 0;
+    const spice_level = req.body.spice_level || 0;
+    const calories = req.body.calories || null;
+    const preparation_time = req.body.preparation_time || null;
+    const is_available = req.body.is_available === 'true' || req.body.is_available === true;
+    const is_featured = req.body.is_featured === 'true' || req.body.is_featured === true;
+    const ai_description = req.body.ai_description || null;
+    const taste_tags = req.body.taste_tags;
+    const ai_category = req.body.ai_category || null;
 
     let imageUrl = existing[0].image_url;
     let thumbnailUrl = existing[0].thumbnail_url;
+    let aiEnhancedImage = existing[0].ai_enhanced_image;
 
     if (req.file) {
       imageUrl = await optimizeImage(req.file.buffer, `dish-${Date.now()}`, 'dishes');
       thumbnailUrl = imageUrl;
+      try {
+        aiEnhancedImage = await enhanceImage(req.file.buffer, `dish-${Date.now()}`, 'dishes');
+      } catch (err) {
+        console.error("Image enhancement failed:", err);
+      }
     }
 
     await pool.query(
       `UPDATE dishes SET 
       name = ?, short_description = ?, description = ?, ingredients = ?, category = ?, 
       price = ?, spice_level = ?, calories = ?, preparation_time = ?, image_url = ?, thumbnail_url = ?, 
-      is_available = ?, is_featured = ?
+      is_available = ?, is_featured = ?, ai_description = ?, taste_tags = ?, ai_category = ?, ai_enhanced_image = ?
       WHERE id = ?`,
-      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available === 'true' || is_available === true, is_featured === 'true' || is_featured === true, dishId]
+      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, dishId]
     );
 
     res.json({ message: 'Dish updated' });

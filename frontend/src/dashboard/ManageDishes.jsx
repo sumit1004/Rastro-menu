@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils, Sparkles } from 'lucide-react';
 import api from '../services/api';
+import aiService from '../services/aiService';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -15,12 +16,16 @@ const ManageDishes = () => {
   const [restaurantId, setRestaurantId] = useState(null);
   
   const [formData, setFormData] = useState({
-    name: '', short_description: '', description: '', ingredients: '',
+    name: '', description: '', ingredients: '',
     category: '', price: '', spice_level: '0', calories: '', 
-    preparation_time: '', is_available: true, is_featured: false
+    preparation_time: '', is_available: true, is_featured: false,
+    taste_tags: []
   });
   const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiCooldown, setAiCooldown] = useState(false);
+  const [aiStatusMessage, setAiStatusMessage] = useState('');
 
   const fetchDishes = async (restId) => {
     try {
@@ -55,18 +60,21 @@ const ManageDishes = () => {
     if (dish) {
       setEditingId(dish.id);
       setFormData({
-        name: dish.name, short_description: dish.short_description || '', 
-        description: dish.description || '', ingredients: dish.ingredients || '',
-        category: dish.category, price: dish.price, spice_level: dish.spice_level, 
+        name: dish.name, 
+        description: dish.ai_description || dish.description || dish.short_description || '', 
+        ingredients: dish.ingredients || '',
+        category: dish.ai_category || dish.category || '', price: dish.price, spice_level: dish.spice_level, 
         calories: dish.calories || '', preparation_time: dish.preparation_time || '', 
-        is_available: dish.is_available, is_featured: dish.is_featured
+        is_available: dish.is_available, is_featured: dish.is_featured,
+        taste_tags: typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : (dish.taste_tags || [])
       });
     } else {
       setEditingId(null);
       setFormData({
-        name: '', short_description: '', description: '', ingredients: '',
+        name: '', description: '', ingredients: '',
         category: '', price: '', spice_level: '0', calories: '', 
-        preparation_time: '', is_available: true, is_featured: false
+        preparation_time: '', is_available: true, is_featured: false,
+        taste_tags: []
       });
     }
     setImageFile(null);
@@ -78,7 +86,14 @@ const ManageDishes = () => {
     setSaving(true);
 
     const submitData = new FormData();
-    Object.keys(formData).forEach(key => submitData.append(key, formData[key]));
+    // Special handling for JSON fields
+    Object.keys(formData).forEach(key => {
+      if (key === 'taste_tags') {
+        submitData.append(key, JSON.stringify(formData[key]));
+      } else {
+        submitData.append(key, formData[key]);
+      }
+    });
     if (imageFile) submitData.append('image', imageFile);
 
     try {
@@ -104,6 +119,35 @@ const ManageDishes = () => {
       } catch (error) {
         alert('Error deleting dish');
       }
+    }
+  };
+
+  const handleAutoFill = async () => {
+    if (!formData.name) return alert("Dish name is required to auto-generate details.");
+    
+    setAiLoading(true);
+    setAiStatusMessage('Generating...');
+    
+    try {
+      const data = await aiService.autoFill(formData.name, formData.ingredients);
+      setFormData(prev => ({
+        ...prev,
+        description: data.description || prev.description,
+        ingredients: data.ingredients || prev.ingredients,
+        calories: data.calories || prev.calories,
+        category: data.category || prev.category,
+        taste_tags: data.taste_tags || prev.taste_tags
+      }));
+      setAiStatusMessage('✨ Auto-filled successfully!');
+      setAiCooldown(true);
+      setTimeout(() => {
+        setAiCooldown(false);
+        setAiStatusMessage('');
+      }, 5000); // 5 second cooldown
+    } catch (error) {
+      setAiStatusMessage('❌ Failed: ' + error.message);
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -167,20 +211,43 @@ const ManageDishes = () => {
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Dish" : "Add New Dish"}>
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1rem' }}>
-          <Input label="Dish Name*" id="name" value={formData.name} onChange={handleChange} required />
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <Input label="Dish Name*" id="name" value={formData.name} onChange={handleChange} required />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: '1rem' }}>
+              <Button type="button" onClick={handleAutoFill} disabled={aiLoading || aiCooldown} style={{ padding: '0.65rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <Sparkles size={16} /> {aiLoading ? 'Generating...' : (aiCooldown ? 'Cooling Down...' : '✨ AI Auto Fill')}
+              </Button>
+              {aiStatusMessage && <span style={{ fontSize: '0.75rem', color: aiStatusMessage.includes('Failed') ? 'red' : 'green', marginTop: '0.25rem', position: 'absolute', transform: 'translateY(40px)' }}>{aiStatusMessage}</span>}
+            </div>
+          </div>
+          
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <Input label="Category*" id="category" value={formData.category} onChange={handleChange} required />
-            <Input label="Price ($)*" type="number" step="0.01" id="price" value={formData.price} onChange={handleChange} required />
+            <Input label="Price (₹)*" type="number" step="0.01" id="price" value={formData.price} onChange={handleChange} required />
           </div>
-          <Input label="Short Description" id="short_description" value={formData.short_description} onChange={handleChange} maxLength="100" />
           
           <div className="form-group">
-            <label className="form-label">Full Description</label>
-            <textarea id="description" className="form-control" rows="3" value={formData.description} onChange={handleChange}></textarea>
+            <label className="form-label">Description</label>
+            <textarea id="description" className="form-control" rows="3" value={formData.description} onChange={handleChange} placeholder="Premium dish description..."></textarea>
           </div>
+
           <div className="form-group">
             <label className="form-label">Ingredients (comma separated)</label>
             <textarea id="ingredients" className="form-control" rows="2" value={formData.ingredients} onChange={handleChange}></textarea>
+          </div>
+
+          <div className="form-group" style={{ position: 'relative' }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <label className="form-label" style={{ color: 'var(--primary-color)' }}>Taste Profile Tags</label>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+              {formData.taste_tags.map((tag, i) => (
+                <span key={i} style={{ padding: '0.25rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '1rem', fontSize: '0.875rem' }}>{tag}</span>
+              ))}
+              {formData.taste_tags.length === 0 && <span style={{ color: '#94a3b8', fontSize: '0.875rem' }}>No tags available.</span>}
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
