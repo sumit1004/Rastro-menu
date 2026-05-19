@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { LayoutDashboard, Store, Utensils, QrCode, Settings, LogOut, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Store, Utensils, QrCode, Settings, LogOut, MessageSquare, TrendingUp } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 
 const Sidebar = () => {
@@ -8,6 +8,7 @@ const Sidebar = () => {
 
   const navItems = [
     { name: 'Overview', path: '/dashboard', icon: <LayoutDashboard size={20} />, exact: true },
+    { name: 'Analytics', path: '/dashboard/analytics', icon: <TrendingUp size={20} /> },
     { name: 'Restaurant Profile', path: '/dashboard/profile', icon: <Store size={20} /> },
     { name: 'Manage Dishes', path: '/dashboard/dishes', icon: <Utensils size={20} /> },
     { name: 'Manage Reviews', path: '/dashboard/reviews', icon: <MessageSquare size={20} /> },

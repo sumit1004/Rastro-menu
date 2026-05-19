@@ -58,3 +58,42 @@ CREATE TABLE IF NOT EXISTS reviews (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS menu_sessions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    restaurant_id INT NOT NULL,
+    session_id VARCHAR(255) NOT NULL,
+    device_type VARCHAR(50),
+    browser VARCHAR(50),
+    visit_source VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS dish_views (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    dish_id INT NOT NULL,
+    restaurant_id INT NOT NULL,
+    session_id VARCHAR(255) NOT NULL,
+    view_duration INT DEFAULT 0,
+    clicked BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE,
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_dish_views_dish_rest ON dish_views (dish_id, restaurant_id);
+CREATE INDEX idx_dish_views_created ON dish_views (created_at);
+
+CREATE TABLE IF NOT EXISTS search_logs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    restaurant_id INT NOT NULL,
+    session_id VARCHAR(255),
+    search_query VARCHAR(255) NOT NULL,
+    results_count INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_search_logs_rest_created ON search_logs (restaurant_id, created_at);
+CREATE INDEX idx_search_logs_query ON search_logs (search_query);

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Star, Clock, Flame, Info, Search, Sparkles } from 'lucide-react';
 import api from '../services/api';
+import analyticsService from '../services/analyticsService';
 import Loader from '../components/Loader';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
@@ -26,6 +27,7 @@ const PublicMenu = () => {
   const [activeCategory, setActiveCategory] = useState('All');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [trendingDishes, setTrendingDishes] = useState([]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -37,6 +39,25 @@ const PublicMenu = () => {
   
   const [dishReviews, setDishReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
+
+  // Analytics: Track modal duration
+  const currentDishRef = useRef(null);
+  const modalOpenTimeRef = useRef(null);
+
+  useEffect(() => {
+    if (selectedDish !== currentDishRef.current) {
+      // If a modal was open, calculate duration
+      if (currentDishRef.current && modalOpenTimeRef.current) {
+        const durationSecs = Math.floor((Date.now() - modalOpenTimeRef.current) / 1000);
+        // Track only if engagement > 2s
+        if (durationSecs >= 2 && restaurant) {
+          analyticsService.trackDishView(currentDishRef.current.id, restaurant.id, durationSecs);
+        }
+      }
+      currentDishRef.current = selectedDish;
+      modalOpenTimeRef.current = selectedDish ? Date.now() : null;
+    }
+  }, [selectedDish, restaurant]);
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -50,6 +71,17 @@ const PublicMenu = () => {
         
         const uniqueCategories = ['All', ...new Set(availableDishes.map(d => d.ai_category || d.category))];
         setCategories(uniqueCategories);
+
+        // Analytics: Track Session
+        analyticsService.trackSession(restRes.data.id);
+        
+        // Analytics: Fetch Trending Dishes
+        try {
+          const trending = await analyticsService.getTrendingDishes(restRes.data.id);
+          setTrendingDishes(trending);
+        } catch (e) {
+          console.warn("Could not load trending dishes");
+        }
       } catch (err) {
         setError('Restaurant not found or menu is unavailable.');
       } finally {
@@ -63,6 +95,8 @@ const PublicMenu = () => {
     const fetchReviews = async () => {
       if (selectedDish) {
         setLoadingReviews(true);
+
+        
         try {
           const res = await api.get(`/reviews/dish/${selectedDish.id}`);
           setDishReviews(res.data);
@@ -148,6 +182,13 @@ const PublicMenu = () => {
       return searchableText.includes(query) || tagsStr.includes(query);
     });
   }, [dishes, activeCategory, debouncedSearch]);
+
+  // Analytics: Track Search
+  useEffect(() => {
+    if (debouncedSearch && restaurant) {
+      analyticsService.trackSearch(restaurant.id, debouncedSearch, filteredDishes.length);
+    }
+  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const recommendedDishes = useMemo(() => {
     if (debouncedSearch) return [];
@@ -243,11 +284,44 @@ const PublicMenu = () => {
 
       <div className="container menu-content-section">
         
+        {/* Trending Section (Analytics Based) */}
+        {trendingDishes.length > 0 && activeCategory === 'All' && !searchQuery && (
+          <div className="recommendation-section">
+            <div className="section-header-ai">
+              <h2 className="section-title mb-0" style={{ borderBottom: 'none', paddingBottom: 0 }}>Trending Now</h2>
+              <span className="ai-badge" style={{ background: 'linear-gradient(135deg, #ef4444, #f97316)' }}><Flame size={14} /> Hot Choices</span>
+            </div>
+            
+            <div className="recommendation-row scroll-hide">
+              {trendingDishes.map(dish => (
+                <div key={dish.id} className="rec-card" onClick={() => setSelectedDish(dish)}>
+                  <div className="rec-img">
+                    {getBestThumbnail(dish) && <img src={getBestThumbnail(dish)} alt={dish.name} />}
+                    {dish.is_featured && <div className="featured-badge">Featured</div>}
+                  </div>
+                  <div className="rec-content">
+                    <h3 className="rec-title">{dish.name}</h3>
+                    <div className="rec-meta">
+                      <span className="dish-price">₹{dish.price}</span>
+                      {dish.average_rating > 0 && (
+                        <div className="dish-rating">
+                          <Star size={12} fill="#f59e0b" color="#f59e0b" />
+                          <span>{parseFloat(dish.average_rating).toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Recommendations Section */}
         {recommendedDishes.length > 0 && activeCategory === 'All' && !searchQuery && (
           <div className="recommendation-section">
             <div className="section-header-ai">
-              <h2 className="section-title mb-0" style={{ borderBottom: 'none', paddingBottom: 0 }}>Top Recommended</h2>
+              <h2 className="section-title mb-0" style={{ borderBottom: 'none', paddingBottom: 0 }}>Most Loved</h2>
               <span className="ai-badge"><Sparkles size={14} /> Popular Picks</span>
             </div>
             
