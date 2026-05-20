@@ -43,6 +43,7 @@ body {
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 a {
@@ -178,6 +179,52 @@ h3 { font-size: 1.5rem; }
   padding: 1.5rem;
   transition: var(--transition);
 }
+
+/* --------------------------------------------------------------- */
+/* Responsive Design System – Breakpoints, Fluid Typography, Utilities */
+/* --------------------------------------------------------------- */
+
+/* Breakpoint custom properties */
+:root {
+  --bp-mobile: 320px;
+  --bp-tablet: 768px;
+  --bp-laptop: 1024px;
+  --bp-desktop: 1440px;
+}
+
+/* Fluid Typography */
+h1 { font-size: clamp(1.75rem, calc(1.5rem + 2vw), 2.5rem); }
+h2 { font-size: clamp(1.5rem, calc(1.25rem + 1.5vw), 2rem); }
+h3 { font-size: clamp(1.25rem, calc(1rem + 1vw), 1.5rem); }
+p, .text-base { font-size: clamp(0.875rem, calc(0.75rem + 0.5vw), 1rem); }
+
+/* Responsive visibility utilities */
+.hidden-sm { display: none; }
+.block-sm { display: block; }
+@media (min-width: 768px) {
+  .hidden-sm { display: block; }
+  .block-sm { display: none; }
+}
+
+/* Grid auto‑fit utilities */
+.grid-auto-fit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--gap-4);
+}
+
+/* Touch‑friendly button enhancements */
+.btn { min-height: 44px; }
+
+/* Modal improvements – ensure full‑screen on small devices */
+@media (max-width: 767px) {
+  .modal-content { width: 95vw; max-height: 95vh; }
+}
+
+/* Sidebar collapsible on mobile – placeholder classes (will be toggled via JS) */
+.sidebar-collapsed { display: none; }
+
+/* End of responsive design system */
 
 .card:hover {
   box-shadow: var(--shadow-md);

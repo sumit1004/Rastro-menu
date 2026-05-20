@@ -53,46 +53,45 @@ const PaymentHistory = ({ embedded = false }) => {
         </Card>
       ) : (
         <Card className="mt-4 overflow-hidden">
-          <table className="w-full text-left" style={{ minWidth: '600px' }}>
-            <thead>
-              <tr className="border-b" style={{ borderColor: 'var(--border-color)', backgroundColor: '#f8fafc' }}>
-                <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Date</th>
-                <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Plan</th>
-                <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Cycle</th>
-                <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Amount</th>
-                <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((payment, idx) => (
-                <tr key={idx} className="border-b last:border-b-0 hover:bg-gray-50 transition-colors" style={{ borderColor: '#f1f5f9' }}>
-                  <td className="p-4 text-gray-800">
-                    {new Date(payment.created_at).toLocaleDateString('en-US', {
-                      year: 'numeric', month: 'short', day: 'numeric',
-                      hour: '2-digit', minute: '2-digit'
-                    })}
-                  </td>
-                  <td className="p-4 font-medium" style={{ textTransform: 'capitalize' }}>
-                    {payment.plan_name}
-                  </td>
-                  <td className="p-4 text-gray-600" style={{ textTransform: 'capitalize' }}>
-                    {payment.billing_cycle}
-                  </td>
-                  <td className="p-4 font-semibold text-gray-900">
-                    ₹{payment.amount}
-                  </td>
-                  <td className="p-4">
-                    <div className="flex items-center gap-2" style={{ textTransform: 'capitalize' }}>
-                      {getStatusIcon(payment.payment_status)}
-                      <span className={payment.payment_status === 'success' ? 'text-green-700 font-medium' : 'text-gray-600'}>
-                        {payment.payment_status}
-                      </span>
-                    </div>
-                  </td>
+          <div className="table-responsive">
+            <table className="w-full text-left" style={{ minWidth: '600px' }}>
+              <thead>
+                <tr className="border-b" style={{ borderColor: 'var(--border-color)', backgroundColor: '#f8fafc' }}>
+                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Date</th>
+                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Plan</th>
+                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Cycle</th>
+                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Amount</th>
+                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Status</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {history.map((payment, idx) => (
+                  <tr key={idx} className="border-b last:border-b-0 hover:bg-gray-50 transition-colors" style={{ borderColor: '#f1f5f9' }}>
+                    <td className="p-4 text-gray-800">
+                      {new Date(payment.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </td>
+                    <td className="p-4 font-medium" style={{ textTransform: 'capitalize' }}>{payment.plan_name}</td>
+                    <td className="p-4 text-gray-600" style={{ textTransform: 'capitalize' }}>{payment.billing_cycle}</td>
+                    <td className="p-4 font-semibold text-gray-900">₹{payment.amount}</td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-2" style={{ textTransform: 'capitalize' }}>
+                        {getStatusIcon(payment.payment_status)}
+                        <span className={payment.payment_status === 'success' ? 'text-green-700 font-medium' : 'text-gray-600'}>
+                          {payment.payment_status}
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
     </div>

@@ -14,7 +14,7 @@ const PLAN_BADGE = {
   premium: { label: 'PREMIUM', bg: '#fef3c7', color: '#d97706' },
 };
 
-const Sidebar = () => {
+const Sidebar = ({ isOpen, closeSidebar }) => {
   const { logout } = useContext(AuthContext);
   const { subscription } = useSubscription();
 
@@ -35,7 +35,7 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <Link to="/" className="sidebar-logo">RASTRO<span>menu</span></Link>
         <div style={{ fontSize: '0.65rem', background: '#fef08a', color: '#854d0e', padding: '0.2rem 0.5rem', borderRadius: '1rem', fontWeight: 'bold', marginLeft: '0.5rem' }}>

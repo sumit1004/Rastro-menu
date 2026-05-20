@@ -151,12 +151,12 @@ const FeatureGrid = ({ compact = false }) => {
       <style>{`
         .feature-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
           gap: 0.75rem;
           margin: 1rem 0;
         }
         .feature-grid-compact {
-          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
         }
         .feature-card {
           display: flex;

@@ -254,7 +254,7 @@ const ManageDishes = () => {
           </Card>
         ) : (
           dishes.map(dish => (
-            <Card key={dish.id} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+            <Card key={dish.id} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
               <div style={{ width: '80px', height: '80px', borderRadius: '0.5rem', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 {dish.thumbnail_url ? (
                   <img src={`http://localhost:5000${dish.thumbnail_url}`} alt={dish.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -300,7 +300,7 @@ const ManageDishes = () => {
             </div>
           </div>
           
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1rem' }}>
             <Input label="Category*" id="category" value={formData.category} onChange={handleChange} required />
             <Input label="Price (₹)*" type="number" step="0.01" id="price" value={formData.price} onChange={handleChange} required />
           </div>
@@ -327,7 +327,7 @@ const ManageDishes = () => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 120px), 1fr))', gap: '1rem' }}>
             <Input label="Spice Level (0-3)" type="number" min="0" max="3" id="spice_level" value={formData.spice_level} onChange={handleChange} />
             <Input label="Calories" type="number" id="calories" value={formData.calories} onChange={handleChange} />
             <Input label="Prep Time (mins)" type="number" id="preparation_time" value={formData.preparation_time} onChange={handleChange} />

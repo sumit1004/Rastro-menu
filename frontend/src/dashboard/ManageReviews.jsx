@@ -47,7 +47,7 @@ const ManageReviews = () => {
 
   return (
     <div className="dashboard-content fade-in">
-      <div className="dashboard-header-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="dashboard-header-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1>Customer Reviews</h1>
           <p className="text-muted">Manage and monitor customer feedback for your dishes.</p>
@@ -57,7 +57,7 @@ const ManageReviews = () => {
       {error && <div className="alert alert-error"><AlertCircle size={20} />{error}</div>}
 
       {/* Review Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
         <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '0.75rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <div style={{ padding: '1rem', backgroundColor: '#eef2ff', borderRadius: '50%', color: '#4f46e5' }}>
             <MessageSquare size={24} />

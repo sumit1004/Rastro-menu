@@ -429,7 +429,7 @@ const PublicMenu = () => {
               {selectedDish.ai_description || selectedDish.description || selectedDish.short_description}
             </p>
 
-            <div style={{ display: 'flex', gap: '1.5rem', marginTop: '1.5rem', padding: '1rem 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '1.5rem', padding: '1rem 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
               {selectedDish.preparation_time > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
                   <Clock size={18} />

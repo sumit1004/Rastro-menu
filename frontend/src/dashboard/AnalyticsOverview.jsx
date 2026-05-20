@@ -48,13 +48,13 @@ const AnalyticsOverview = () => {
 
   return (
     <div className="analytics-container fade-in">
-      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h2 style={{ fontSize: '1.875rem', fontWeight: 'bold' }}>Intelligence & Analytics</h2>
           <p style={{ color: 'var(--text-muted)' }}>Understand customer behavior and optimize your menu.</p>
         </div>
         
-        <div className="time-filters" style={{ display: 'flex', gap: '0.5rem' }}>
+        <div className="time-filters" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           {['today', '7days', '30days', 'all'].map(filter => (
             <button
               key={filter}
@@ -166,7 +166,7 @@ const AnalyticsOverview = () => {
       </div>
 
       {/* Two Column Layout for Top Lists */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 400px), 1fr))', gap: '2rem' }}>
         
         {/* Most Viewed Dishes */}
         <div style={{ padding: '1.5rem', background: 'white', borderRadius: '1rem', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
