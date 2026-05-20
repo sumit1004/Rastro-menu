@@ -23,7 +23,11 @@ const Login = () => {
     try {
       const { data } = await api.post('/auth/login', { email, password });
       login(data);
-      navigate('/dashboard');
+      if (data.role === 'admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {

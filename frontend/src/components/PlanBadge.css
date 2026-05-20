@@ -1,0 +1,33 @@
+.plan-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.badge-free {
+  background: var(--surface-light, #2a2a2a);
+  color: var(--text-secondary, #aaa);
+  border: 1px solid #444;
+}
+
+.badge-pro {
+  background: linear-gradient(135deg, #6a11cb, #2575fc);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(37, 117, 252, 0.4);
+}
+
+.badge-premium {
+  background: linear-gradient(135deg, #f6d365, #fda085);
+  color: #1a1a1a;
+  box-shadow: 0 2px 8px rgba(253, 160, 133, 0.4);
+}
+
+.badge-trial {
+  border: 1px dashed currentColor;
+}

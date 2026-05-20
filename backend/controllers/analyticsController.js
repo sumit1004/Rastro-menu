@@ -48,8 +48,25 @@ exports.getDashboardMetrics = async (req, res) => {
     }
 
     const metrics = await analyticsAggregator.getDashboardMetrics(restaurantId, timeFilter);
-    res.status(200).json(metrics);
+    
+    // Feature gating: Restrict advanced analytics for FREE plan
+    if (req.restaurant && req.restaurant.subscription_plan === 'free') {
+      // Return only basic metrics
+      return res.status(200).json({
+        overview: metrics.overview,
+        topDishes: metrics.topDishes ? metrics.topDishes.slice(0, 3) : [], // Only top 3
+        topSearches: [],
+        dailyViews: [],
+        insights: [],
+        advanced: false,
+        message: 'Upgrade to Pro to see advanced analytics.'
+      });
+    }
+
+    // Add flag to indicate advanced data is available
+    res.status(200).json({ ...metrics, advanced: true });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Failed to fetch dashboard metrics' });
   }
 };

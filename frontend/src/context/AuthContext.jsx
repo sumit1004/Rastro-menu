@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
+import api from '../services/api';
 
 export const AuthContext = createContext();
 
@@ -14,6 +15,22 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  const verifyToken = async () => {
+    try {
+      const storedUser = JSON.parse(localStorage.getItem('rastro_user'));
+      if (!storedUser?.token) return;
+
+      const { data } = await api.get('/auth/me');
+      
+      const updatedUser = { ...storedUser, ...data };
+      localStorage.setItem('rastro_user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (err) {
+      console.error('Failed to verify token:', err);
+      logout();
+    }
+  };
+
   const login = (userData) => {
     localStorage.setItem('rastro_user', JSON.stringify(userData));
     setUser(userData);
@@ -25,7 +42,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, verifyToken }}>
       {children}
     </AuthContext.Provider>
   );

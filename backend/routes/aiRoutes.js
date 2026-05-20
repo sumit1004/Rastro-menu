@@ -3,6 +3,8 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const { protect } = require('../middleware/authMiddleware');
 const { generateAiDescription, generateAiTasteTags, generateAiCategory, autoFillDish } = require('../controllers/aiController');
+const { checkLimit } = require('../middleware/planMiddleware');
+const { getAiUsageCount } = require('../utils/usageHelper');
 
 // Rate Limiter for AI routes: max 15 requests per 10 minutes per IP
 const aiLimiter = rateLimit({
@@ -14,6 +16,7 @@ const aiLimiter = rateLimit({
 // Apply protection and rate limiting to all AI routes
 router.use(protect);
 router.use(aiLimiter);
+router.use(checkLimit('aiGenerationsPerMonth', getAiUsageCount));
 
 router.post('/generate-description', generateAiDescription);
 router.post('/generate-taste-tags', generateAiTasteTags);

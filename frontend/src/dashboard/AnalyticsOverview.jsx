@@ -2,11 +2,12 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import analyticsService from '../services/analyticsService';
 import Loader from '../components/Loader';
+import UpgradeModal from '../components/UpgradeModal';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   BarChart, Bar, AreaChart, Area
 } from 'recharts';
-import { TrendingUp, Users, Eye, Search, Flame, Lightbulb } from 'lucide-react';
+import { TrendingUp, Users, Eye, Search, Flame, Lightbulb, Lock } from 'lucide-react';
 import './Dashboard.css';
 
 import api from '../services/api';
@@ -17,6 +18,7 @@ const AnalyticsOverview = () => {
   const [loading, setLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState('7days');
   const [error, setError] = useState(null);
+  const [upgradeModal, setUpgradeModal] = useState(false);
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -102,20 +104,36 @@ const AnalyticsOverview = () => {
       </div>
 
       {/* Insights Section */}
-      {metrics.insights && metrics.insights.length > 0 && (
-        <div style={{ marginBottom: '2.5rem', padding: '1.5rem', background: 'linear-gradient(to right, #fdf4ff, #f0fdfa)', borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', fontSize: '1.25rem', color: '#0f172a' }}>
-            <Lightbulb size={24} color="#eab308" /> AI Analytics Insights
-          </h3>
-          <ul style={{ listStyleType: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {metrics.insights.map((insight, index) => (
-              <li key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '1.05rem', color: '#334155' }}>
-                <span style={{ color: '#10b981', marginTop: '2px' }}>•</span> {insight}
-              </li>
-            ))}
-          </ul>
+      <div style={{ position: 'relative' }}>
+        {!metrics.advanced && (
+          <div className="pro-feature-overlay" onClick={() => setUpgradeModal(true)} style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10,
+            background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            borderRadius: '1rem', cursor: 'pointer'
+          }}>
+            <div style={{ background: 'var(--primary-color)', color: 'white', padding: '0.5rem 1rem', borderRadius: '2rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Flame size={16} /> Upgrade to Pro to view Insights
+            </div>
+          </div>
+        )}
+        <div style={{ opacity: !metrics.advanced ? 0.3 : 1, pointerEvents: !metrics.advanced ? 'none' : 'auto' }}>
+          {metrics.insights && metrics.insights.length > 0 && (
+            <div style={{ marginBottom: '2.5rem', padding: '1.5rem', background: 'linear-gradient(to right, #fdf4ff, #f0fdfa)', borderRadius: '1rem', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', fontSize: '1.25rem', color: '#0f172a' }}>
+                <Lightbulb size={24} color="#eab308" /> AI Analytics Insights
+              </h3>
+              <ul style={{ listStyleType: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {metrics.insights.map((insight, index) => (
+                  <li key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '1.05rem', color: '#334155' }}>
+                    <span style={{ color: '#10b981', marginTop: '2px' }}>•</span> {insight}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Main Charts Area */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem', marginBottom: '2.5rem' }}>
@@ -174,28 +192,49 @@ const AnalyticsOverview = () => {
         </div>
 
         {/* Top Searches */}
-        <div style={{ padding: '1.5rem', background: 'white', borderRadius: '1rem', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', fontSize: '1.25rem' }}>
-            <Search size={20} color="#8b5cf6" /> Customer Search Intent
-          </h3>
-          {topSearches.length > 0 ? (
-            <div style={{ height: '250px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={topSearches} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                  <XAxis type="number" />
-                  <YAxis dataKey="search_query" type="category" width={100} tick={{fill: '#475569', fontSize: 14}} />
-                  <Tooltip />
-                  <Bar dataKey="searchCount" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} name="Searches" />
-                </BarChart>
-              </ResponsiveContainer>
+        <div style={{ position: 'relative' }}>
+          {!metrics.advanced && (
+            <div className="pro-feature-overlay" onClick={() => setUpgradeModal(true)} style={{
+              position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10,
+              background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+              borderRadius: '1rem', cursor: 'pointer'
+            }}>
+              <div style={{ background: 'var(--primary-color)', color: 'white', padding: '0.5rem 1rem', borderRadius: '2rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Lock size={16} /> Upgrade to Pro to view Search Intent
+              </div>
             </div>
-          ) : (
-            <p style={{ color: 'var(--text-muted)' }}>No search data available.</p>
           )}
+          <div style={{ opacity: !metrics.advanced ? 0.3 : 1, pointerEvents: !metrics.advanced ? 'none' : 'auto', padding: '1.5rem', background: 'white', borderRadius: '1rem', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', height: '100%' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', fontSize: '1.25rem' }}>
+              <Search size={20} color="#8b5cf6" /> Customer Search Intent
+            </h3>
+            {topSearches && topSearches.length > 0 ? (
+              <div style={{ height: '250px' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={topSearches} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="search_query" type="category" width={100} tick={{fill: '#475569', fontSize: 14}} />
+                    <Tooltip />
+                    <Bar dataKey="searchCount" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={24} name="Searches" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)' }}>No search data available.</p>
+            )}
+          </div>
         </div>
 
       </div>
+
+      <UpgradeModal 
+        isOpen={upgradeModal} 
+        onClose={() => setUpgradeModal(false)} 
+        featureName="Advanced Analytics"
+        message="Upgrade to Pro to unlock AI insights, search intent, and deep customer behavior analysis."
+      />
     </div>
   );
 };

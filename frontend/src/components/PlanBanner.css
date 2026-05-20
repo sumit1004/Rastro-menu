@@ -1,0 +1,211 @@
+/* ==========================================
+   PLAN BANNER — Global Subscription Status Card
+   ========================================== */
+
+.plan-banner {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.25rem 1.75rem;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  position: relative;
+  overflow: hidden;
+  flex-wrap: wrap;
+}
+
+.plan-banner::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--plan-gradient, linear-gradient(135deg, #64748b, #94a3b8));
+}
+
+/* Plan Identity */
+.pb-identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 180px;
+}
+
+.pb-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 2rem;
+  color: white;
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.pb-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.pb-tagline {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pb-details {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.pb-chip {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.pb-chip.danger {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+/* Trial Countdown */
+.pb-trial {
+  flex: 1;
+  min-width: 180px;
+  max-width: 240px;
+}
+
+.pb-trial-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  color: #92400e;
+  margin-bottom: 0.4rem;
+}
+
+.pb-trial-sub {
+  font-size: 0.72rem;
+  color: #92400e;
+  margin-top: 0.3rem;
+}
+
+/* Progress Bars */
+.pb-progress-track {
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.pb-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+/* Usage Section */
+.pb-usage {
+  flex: 1;
+  min-width: 200px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.pb-usage-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pb-usage-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pb-usage-label {
+  font-size: 0.78rem;
+  color: #475569;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.pb-usage-value {
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pb-usage-warn {
+  font-size: 0.7rem;
+  margin-top: 0.1rem;
+  font-weight: 600;
+}
+
+/* CTA */
+.pb-cta {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.pb-upgrade-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--plan-gradient, linear-gradient(135deg, #4f46e5, #7c3aed));
+  color: white;
+  border: none;
+  padding: 0.65rem 1.25rem;
+  border-radius: 0.6rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.3);
+}
+
+.pb-upgrade-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79, 70, 229, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .plan-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+  .pb-usage, .pb-trial {
+    width: 100%;
+    max-width: 100%;
+  }
+  .pb-cta {
+    margin-left: 0;
+    width: 100%;
+  }
+  .pb-upgrade-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
