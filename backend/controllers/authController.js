@@ -4,7 +4,11 @@ const jwt = require('jsonwebtoken');
 
 // Generate JWT Token
 const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
+  const secret = process.env.JWT_SECRET || 'development_fallback_secret_123!@#';
+  if (!process.env.JWT_SECRET) {
+    console.warn("WARNING: JWT_SECRET environment variable is missing. Using insecure fallback.");
+  }
+  return jwt.sign({ id, role }, secret, {
     expiresIn: '30d',
   });
 };
@@ -47,8 +51,8 @@ const signup = async (req, res) => {
       token: generateToken(user.id, user.role),
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error during signup' });
+    console.error("Signup error details:", error);
+    res.status(500).json({ message: 'Server error during signup', error: error.message || error.code || 'Unknown error' });
   }
 };
 
@@ -81,8 +85,8 @@ const login = async (req, res) => {
       res.status(400).json({ message: 'Invalid credentials' });
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error during login' });
+    console.error("Login error details:", error);
+    res.status(500).json({ message: 'Server error during login', error: error.message || error.code || 'Unknown error' });
   }
 };
 
