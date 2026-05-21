@@ -1,6 +1,6 @@
 const pool = require('../config/db');
 const { PLAN_LIMITS } = require('../config/plans');
-const { getDishCount, getAiUsageCount } = require('../utils/usageHelper');
+const { getDishCount } = require('../utils/usageHelper');
 
 // Helper: sanitize Infinity to null so JSON.stringify doesn't drop the field
 const sanitizeLimits = (limits) => {
@@ -16,8 +16,6 @@ const deriveFeatures = (plan) => {
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS['free'];
   return {
     unlimitedDishes: limits.maxDishes === Infinity || limits.maxDishes === null,
-    aiAccess: (limits.aiGenerationsPerMonth > 0),
-    unlimitedAi: limits.aiGenerationsPerMonth === Infinity || limits.aiGenerationsPerMonth === null,
     advancedAnalytics: limits.analyticsAccess === 'advanced',
     customBranding: !!limits.customBranding,
     prioritySupport: !!limits.prioritySupport,
@@ -45,7 +43,6 @@ const getSubscriptionDetails = async (req, res) => {
     } = req.restaurant;
 
     const dishCount = await getDishCount(restaurantId, pool);
-    const aiUsage = await getAiUsageCount(restaurantId, pool);
 
     const plan = subscription_plan || 'free';
     const rawLimits = PLAN_LIMITS[plan] || PLAN_LIMITS['free'];
@@ -65,8 +62,7 @@ const getSubscriptionDetails = async (req, res) => {
       limits,
       features,
       usage: {
-        dishes: dishCount,
-        aiGenerations: aiUsage,
+        dishes: dishCount
       },
       trial: {
         startDate: resolvedStartDate,

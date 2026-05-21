@@ -1,5 +1,4 @@
 const pool = require('../config/db');
-const { optimizeImage } = require('../utils/imageOptimizer');
 
 // @desc    Get current user's restaurant profile
 // @route   GET /api/restaurants/my-profile
@@ -61,10 +60,10 @@ const upsertProfile = async (req, res) => {
 
     if (req.files) {
       if (req.files.logo && req.files.logo[0]) {
-        logoPath = await optimizeImage(req.files.logo[0].buffer, `logo-${req.user.id}`, 'logos');
+        logoPath = '/' + req.files.logo[0].path.replace(/\\/g, '/');
       }
       if (req.files.banner && req.files.banner[0]) {
-        bannerPath = await optimizeImage(req.files.banner[0].buffer, `banner-${req.user.id}`, 'banners');
+        bannerPath = '/' + req.files.banner[0].path.replace(/\\/g, '/');
       }
     }
 

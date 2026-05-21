@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils, Sparkles, Lock } from 'lucide-react';
 import api, { getImageUrl } from '../services/api';
-import aiService from '../services/aiService';
 import Card from '../components/Card';
 import Button from '../components/Button';
 import Input from '../components/Input';
@@ -27,9 +26,6 @@ const ManageDishes = () => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiCooldown, setAiCooldown] = useState(false);
-  const [aiStatusMessage, setAiStatusMessage] = useState('');
 
   const fetchDishes = async (restId) => {
     try {
@@ -163,59 +159,7 @@ const ManageDishes = () => {
     }
   };
 
-  const handleAutoFill = async () => {
-    if (!formData.name) return alert("Dish name is required to auto-generate details.");
-    
-    // Check limit before calling API (Frontend check for UX)
-    const aiLimit = subscription?.limits?.aiGenerationsPerMonth;
-    const currentAiUsage = subscription?.usage?.aiGenerations || 0;
-    
-    if (aiLimit !== undefined && aiLimit !== null && aiLimit !== Infinity && currentAiUsage >= aiLimit) {
-      setUpgradeModal({
-        isOpen: true,
-        featureName: 'AI Menu Optimization',
-        message: 'You have reached your monthly limit for AI generations.',
-        limitReached: true
-      });
-      return;
-    }
-    
-    setAiLoading(true);
-    setAiStatusMessage('Generating...');
-    
-    try {
-      const data = await aiService.autoFill(formData.name, formData.ingredients);
-      setFormData(prev => ({
-        ...prev,
-        description: data.description || prev.description,
-        ingredients: data.ingredients || prev.ingredients,
-        calories: data.calories || prev.calories,
-        category: data.category || prev.category,
-        taste_tags: data.taste_tags || prev.taste_tags
-      }));
-      setAiStatusMessage('✨ Auto-filled successfully!');
-      await fetchSubscription(); // update ai usage count
-      setAiCooldown(true);
-      setTimeout(() => {
-        setAiCooldown(false);
-        setAiStatusMessage('');
-      }, 5000); 
-    } catch (error) {
-      if (error.response?.data?.code === 'LIMIT_REACHED') {
-        setUpgradeModal({
-          isOpen: true,
-          featureName: 'AI Menu Optimization',
-          message: error.response.data.message,
-          limitReached: true
-        });
-        setAiStatusMessage('');
-      } else {
-        setAiStatusMessage('❌ Failed: ' + (error.response?.data?.message || error.message));
-      }
-    } finally {
-      setAiLoading(false);
-    }
-  };
+
 
   if (loading) return <Loader />;
 
@@ -230,9 +174,7 @@ const ManageDishes = () => {
     );
   }
 
-  const aiLimit = subscription?.limits?.aiGenerationsPerMonth;
-  const currentAiUsage = subscription?.usage?.aiGenerations || 0;
-  const isAiLocked = aiLimit !== undefined && aiLimit !== Infinity && currentAiUsage >= aiLimit;
+
 
   return (
     <div>
@@ -282,21 +224,8 @@ const ManageDishes = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? "Edit Dish" : "Add New Dish"}>
         <form onSubmit={handleSubmit} style={{ display: 'grid', gap: '1rem' }}>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div style={{ flex: 1, minWidth: '200px' }}>
+            <div style={{ flex: 1, minWidth: '200px', marginBottom: '1rem' }}>
               <Input label="Dish Name*" id="name" value={formData.name} onChange={handleChange} required />
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: '1rem' }}>
-              <Button 
-                type="button" 
-                onClick={handleAutoFill} 
-                disabled={aiLoading || aiCooldown} 
-                className={isAiLocked ? 'locked-btn' : ''}
-                style={{ padding: '0.65rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', opacity: isAiLocked ? 0.8 : 1 }}
-              >
-                {isAiLocked ? <Lock size={16} /> : <Sparkles size={16} />} 
-                {aiLoading ? 'Generating...' : (aiCooldown ? 'Cooling Down...' : 'AI Auto Fill')}
-              </Button>
-              {aiStatusMessage && <span style={{ fontSize: '0.75rem', color: aiStatusMessage.includes('Failed') ? 'red' : 'green', marginTop: '0.25rem', position: 'absolute', transform: 'translateY(40px)' }}>{aiStatusMessage}</span>}
             </div>
           </div>
           

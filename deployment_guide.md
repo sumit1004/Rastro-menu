@@ -27,7 +27,6 @@ This document provides step-by-step instructions for deploying the Rastro-menu S
    - `DB_PASSWORD`: Your Hostinger DB password
    - `DB_NAME`: Your Hostinger DB name
    - `JWT_SECRET`: A strong random string for authentication
-   - `GEMINI_API_KEY`: Your Google Gemini API Key
    - `RAZORPAY_KEY_ID`: Your Razorpay Key ID
    - `RAZORPAY_KEY_SECRET`: Your Razorpay Key Secret
 

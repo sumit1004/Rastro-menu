@@ -7,21 +7,18 @@ const PLANS = {
 const PLAN_LIMITS = {
   [PLANS.FREE]: {
     maxDishes: 10,
-    aiGenerationsPerMonth: 5, // Soft limit at 4 (80%)
     analyticsAccess: 'basic',
     customBranding: false,
     prioritySupport: false
   },
   [PLANS.PRO]: {
     maxDishes: Infinity,
-    aiGenerationsPerMonth: 100, // Or whatever limit fits
     analyticsAccess: 'advanced',
     customBranding: false,
     prioritySupport: false
   },
   [PLANS.PREMIUM]: {
     maxDishes: Infinity,
-    aiGenerationsPerMonth: Infinity,
     analyticsAccess: 'advanced',
     customBranding: true,
     prioritySupport: true
