@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils, Sparkles, Lock } from 'lucide-react';
-import api from '../services/api';
+import api, { getImageUrl } from '../services/api';
 import aiService from '../services/aiService';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -257,7 +257,7 @@ const ManageDishes = () => {
             <Card key={dish.id} style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
               <div style={{ width: '80px', height: '80px', borderRadius: '0.5rem', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                 {dish.thumbnail_url ? (
-                  <img src={`http://localhost:5000${dish.thumbnail_url}`} alt={dish.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={getImageUrl(dish.thumbnail_url)} alt={dish.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
                   <ImageIcon className="text-muted" />
                 )}

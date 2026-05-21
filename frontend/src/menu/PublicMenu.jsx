@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Star, Clock, Flame, Info, Search, Sparkles } from 'lucide-react';
-import api from '../services/api';
+import api, { getImageUrl } from '../services/api';
 import analyticsService from '../services/analyticsService';
 import Loader from '../components/Loader';
 import Modal from '../components/Modal';
@@ -218,28 +218,28 @@ const PublicMenu = () => {
   };
 
   const getBestImage = (dish) => {
-    if (dish.ai_enhanced_image) return `http://localhost:5000${dish.ai_enhanced_image}`;
-    if (dish.image_url) return `http://localhost:5000${dish.image_url}`;
+    if (dish.ai_enhanced_image) return getImageUrl(dish.ai_enhanced_image);
+    if (dish.image_url) return getImageUrl(dish.image_url);
     return null;
   };
 
   const getBestThumbnail = (dish) => {
-    if (dish.ai_enhanced_image) return `http://localhost:5000${dish.ai_enhanced_image}`;
-    if (dish.thumbnail_url) return `http://localhost:5000${dish.thumbnail_url}`;
+    if (dish.ai_enhanced_image) return getImageUrl(dish.ai_enhanced_image);
+    if (dish.thumbnail_url) return getImageUrl(dish.thumbnail_url);
     return null;
   };
 
   return (
     <div className="public-menu-container">
       {/* Banner */}
-      <div className="menu-banner" style={{ backgroundImage: `url(${restaurant.banner ? `http://localhost:5000${restaurant.banner}` : 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1934&auto=format&fit=crop'})` }}>
+      <div className="menu-banner" style={{ backgroundImage: `url(${restaurant.banner ? getImageUrl(restaurant.banner) : 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1934&auto=format&fit=crop'})` }}>
         <div className="menu-banner-overlay"></div>
       </div>
       
       <div className="menu-header container">
         <div className="menu-logo">
           {restaurant.logo ? (
-            <img src={`http://localhost:5000${restaurant.logo}`} alt={restaurant.restaurant_name} />
+            <img src={getImageUrl(restaurant.logo)} alt={restaurant.restaurant_name} />
           ) : (
             <div className="menu-logo-placeholder">{restaurant.restaurant_name.charAt(0)}</div>
           )}

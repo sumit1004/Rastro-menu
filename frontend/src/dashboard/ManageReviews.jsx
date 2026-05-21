@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Star, MessageSquare, Trash2, AlertCircle } from 'lucide-react';
-import api from '../services/api';
+import api, { getImageUrl } from '../services/api';
 import Loader from '../components/Loader';
 import Button from '../components/Button';
 
@@ -91,7 +91,7 @@ const ManageReviews = () => {
           {reviews.map(review => (
             <div key={review.id} style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '0.75rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
               {review.dish_image ? (
-                <img src={`http://localhost:5000${review.dish_image}`} alt={review.dish_name} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '0.5rem' }} />
+                <img src={getImageUrl(review.dish_image)} alt={review.dish_name} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '0.5rem' }} />
               ) : (
                 <div style={{ width: '80px', height: '80px', backgroundColor: '#f1f5f9', borderRadius: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>No Img</div>
               )}
