@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { getDevicePerformanceClass } from './arUtils';
 import { getImageUrl } from '../services/api';
@@ -8,13 +8,29 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
   const dishRef = useRef(null);
   const performanceClass = getDevicePerformanceClass();
 
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  // Step 5: Real-World Scale Multiplier based on dish category or keyword
+  const baseScale = useMemo(() => {
+    const name = dish.name.toLowerCase();
+    const cat = (dish.category || '').toLowerCase();
+    const target = name + ' ' + cat;
+    if (target.includes('pizza')) return 1.2;
+    if (target.includes('burger') || target.includes('sandwich')) return 0.7;
+    if (target.includes('bowl') || target.includes('salad')) return 0.85;
+    if (target.includes('drink') || target.includes('beverage') || target.includes('coffee')) return 0.5;
+    return 0.9;
+  }, [dish.name, dish.category]);
+
+  const [scale, setScale] = useState(baseScale);
+  // Step 3: Spawn at bottom-center (e.g. translateY 20vh)
+  const [position, setPosition] = useState({ x: 0, y: window.innerHeight * 0.2 });
   const [rotation, setRotation] = useState(0);
+
+  // Parallax offsets
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
 
   const gestureState = useRef({
     initialDistance: null,
-    initialScale: 1,
+    initialScale: baseScale,
     initialAngle: null,
     initialRotation: 0,
     lastTouch: null
@@ -42,11 +58,32 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
 
     return () => {
       isMounted = false;
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
+      if (stream) stream.getTracks().forEach(track => track.stop());
     };
   }, [onCameraError]);
+
+  // Step 4: Motion Parallax
+  useEffect(() => {
+    if (performanceClass === 'low') return; // Disable on low end
+
+    const handleOrientation = (e) => {
+      // e.gamma = left/right tilt [-90 to 90]
+      // e.beta = front/back tilt [-180 to 180]
+      if (e.gamma === null || e.beta === null) return;
+      
+      // Simple easing: moving phone right (gamma > 0) should move image left slightly
+      // Clamp values to prevent wild swings
+      const maxShift = 40;
+      const shiftX = Math.max(-maxShift, Math.min(maxShift, -e.gamma * 1.5));
+      // Adjust beta offset. Assume normal hold is beta=45deg.
+      const shiftY = Math.max(-maxShift, Math.min(maxShift, -(e.beta - 45) * 1.5));
+
+      setParallax({ x: shiftX, y: shiftY });
+    };
+
+    window.addEventListener('deviceorientation', handleOrientation);
+    return () => window.removeEventListener('deviceorientation', handleOrientation);
+  }, [performanceClass]);
 
   const getDistance = (touch1, touch2) => Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
   const getAngle = (touch1, touch2) => Math.atan2(touch2.clientY - touch1.clientY, touch2.clientX - touch1.clientX) * (180 / Math.PI);
@@ -88,8 +125,20 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     <>
       <video ref={videoRef} autoPlay playsInline muted className="ar-camera-feed" />
       <div className="ar-scene" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        <div className="ar-dish-wrapper" ref={dishRef} style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)` }}>
-          <img src={getImageUrl(dish.ar_image_url)} alt={dish.name} className="ar-dish-image" crossOrigin="anonymous" />
+        {/* Parallax layer wrapper */}
+        <div 
+          className="ar-dish-wrapper" 
+          ref={dishRef} 
+          style={{ 
+            transform: `translate(${position.x + parallax.x}px, ${position.y + parallax.y}px) scale(${scale}) rotate(${rotation}deg)` 
+          }}
+        >
+          {/* Perspective layer */}
+          <div className="ar-perspective-container">
+            <div className="ar-ground-shadow"></div>
+            <img src={getImageUrl(dish.ar_image_url)} alt={dish.name} className="ar-dish-image" crossOrigin="anonymous" />
+            <div className="ar-lighting-overlay"></div>
+          </div>
         </div>
       </div>
       <div className="ar-ui-overlay">

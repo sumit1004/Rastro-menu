@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { getDevicePerformanceClass } from './arUtils';
 import { getImageUrl } from '../services/api';
@@ -7,13 +7,26 @@ const ARFallbackViewer = ({ dish, onClose }) => {
   const dishRef = useRef(null);
   const performanceClass = getDevicePerformanceClass();
 
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  // Step 5: Real-World Scale Multiplier based on dish category or keyword
+  const baseScale = useMemo(() => {
+    const name = dish.name.toLowerCase();
+    const cat = (dish.category || '').toLowerCase();
+    const target = name + ' ' + cat;
+    if (target.includes('pizza')) return 1.2;
+    if (target.includes('burger') || target.includes('sandwich')) return 0.7;
+    if (target.includes('bowl') || target.includes('salad')) return 0.85;
+    if (target.includes('drink') || target.includes('beverage') || target.includes('coffee')) return 0.5;
+    return 0.9;
+  }, [dish.name, dish.category]);
+
+  const [scale, setScale] = useState(baseScale);
+  // Default position: lower half of the screen
+  const [position, setPosition] = useState({ x: 0, y: window.innerHeight * 0.2 });
   const [rotation, setRotation] = useState(0);
 
   const gestureState = useRef({
     initialDistance: null,
-    initialScale: 1,
+    initialScale: baseScale,
     initialAngle: null,
     initialRotation: 0,
     lastTouch: null
@@ -59,16 +72,24 @@ const ARFallbackViewer = ({ dish, onClose }) => {
     <>
       <div className="ar-fallback-bg"></div>
       <div className="ar-scene" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
-        <div className="ar-dish-wrapper" ref={dishRef} style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)` }}>
-          <img src={getImageUrl(dish.ar_image_url)} alt={dish.name} className="ar-dish-image" crossOrigin="anonymous" />
+        <div 
+          className="ar-dish-wrapper" 
+          ref={dishRef} 
+          style={{ transform: `translate(${position.x}px, ${position.y}px) scale(${scale}) rotate(${rotation}deg)` }}
+        >
+          <div className="ar-perspective-container">
+            <div className="ar-ground-shadow"></div>
+            <img src={getImageUrl(dish.ar_image_url)} alt={dish.name} className="ar-dish-image" crossOrigin="anonymous" />
+            <div className="ar-lighting-overlay"></div>
+          </div>
         </div>
       </div>
       <div className="ar-ui-overlay">
-        <button className="ar-close-btn" onClick={onClose} style={{ background: 'rgba(0,0,0,0.1)' }}><X size={24} color="#333" /></button>
-        <div className="ar-instructions" style={{ background: 'rgba(255,255,255,0.7)', color: '#333' }}>
-          Interactive 3D Preview (No Camera)
+        <button className="ar-close-btn" onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}><X size={24} color="#fff" /></button>
+        <div className="ar-instructions" style={{ background: 'rgba(0,0,0,0.5)', color: '#fff' }}>
+          Interactive 3D Preview (Showroom Mode)
         </div>
-        <div className="ar-watermark" style={{ color: '#64748b', textShadow: 'none' }}>Powered by Rastro-menu</div>
+        <div className="ar-watermark" style={{ color: 'rgba(255,255,255,0.5)', textShadow: 'none' }}>Powered by Rastro-menu</div>
       </div>
     </>
   );
