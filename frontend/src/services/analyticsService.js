@@ -94,6 +94,17 @@ class AnalyticsService {
       throw error;
     }
   }
+
+  // Track generic events (e.g., AR interactions)
+  trackEvent(eventName, data) {
+    if (eventName === 'ar_open') {
+      api.post('/analytics/track-ar-event', {
+        restaurantId: data.restaurantId,
+        dishId: data.dishId,
+        eventType: 'open'
+      }).catch(err => console.warn('Analytics: Failed to track AR event', err));
+    }
+  }
 }
 
 export default new AnalyticsService();

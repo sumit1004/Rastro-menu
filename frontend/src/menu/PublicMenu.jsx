@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Star, Clock, Flame, Info, Search, Sparkles } from 'lucide-react';
+import { Star, Clock, Flame, Info, Search, Sparkles, Camera } from 'lucide-react';
 import api, { getImageUrl } from '../services/api';
 import analyticsService from '../services/analyticsService';
+import ARViewer from '../ar/ARViewer';
 import Loader from '../components/Loader';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
@@ -40,6 +41,8 @@ const PublicMenu = () => {
   const [dishReviews, setDishReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
 
+  const [isARViewerOpen, setIsARViewerOpen] = useState(false);
+
   // Analytics: Track modal duration
   const currentDishRef = useRef(null);
   const modalOpenTimeRef = useRef(null);
@@ -56,6 +59,12 @@ const PublicMenu = () => {
       }
       currentDishRef.current = selectedDish;
       modalOpenTimeRef.current = selectedDish ? Date.now() : null;
+    }
+
+    // Preload AR asset if available
+    if (selectedDish && selectedDish.ar_enabled && selectedDish.ar_image_url) {
+      const img = new Image();
+      img.src = getImageUrl(selectedDish.ar_image_url);
     }
   }, [selectedDish, restaurant]);
 
@@ -429,6 +438,27 @@ const PublicMenu = () => {
               {selectedDish.ai_description || selectedDish.description || selectedDish.short_description}
             </p>
 
+            {selectedDish.ar_enabled && selectedDish.ar_image_url ? (
+              <Button 
+                onClick={() => {
+                  setIsARViewerOpen(true);
+                  // Basic analytics for AR
+                  if (restaurant) {
+                    analyticsService.trackEvent?.('ar_open', { dishId: selectedDish.id, restaurantId: restaurant.id });
+                  }
+                }}
+                style={{ width: '100%', marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', backgroundColor: '#0f172a' }}
+              >
+                <Camera size={18} />
+                View in AR
+              </Button>
+            ) : (
+              <div style={{ marginTop: '1.5rem', padding: '0.75rem', backgroundColor: '#f1f5f9', borderRadius: '0.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>
+                <Camera size={16} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '0.5rem' }} />
+                AR Preview Coming Soon
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginTop: '1.5rem', padding: '1rem 0', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>
               {selectedDish.preparation_time > 0 && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
@@ -514,6 +544,14 @@ const PublicMenu = () => {
           </div>
         )}
       </Modal>
+
+      {isARViewerOpen && selectedDish && (
+        <ARViewer 
+          dish={selectedDish} 
+          restaurantId={restaurant.id} 
+          onClose={() => setIsARViewerOpen(false)} 
+        />
+      )}
     </div>
   );
 };

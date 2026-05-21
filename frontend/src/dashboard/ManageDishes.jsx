@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils, Sparkles, Lock } from 'lucide-react';
+import ImageCropper from '../components/ImageCropper';
 import api, { getImageUrl } from '../services/api';
 import Card from '../components/Card';
 import Button from '../components/Button';
@@ -22,9 +23,13 @@ const ManageDishes = () => {
     name: '', description: '', ingredients: '',
     category: '', price: '', spice_level: '0', calories: '', 
     preparation_time: '', is_available: true, is_featured: false,
+    ar_enabled: false,
     taste_tags: []
   });
   const [imageFile, setImageFile] = useState(null);
+  const [arImageFile, setArImageFile] = useState(null);
+  const [cropImageSrc, setCropImageSrc] = useState(null);
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const fetchDishes = async (restId) => {
@@ -92,6 +97,7 @@ const ManageDishes = () => {
         category: dish.ai_category || dish.category || '', price: dish.price, spice_level: dish.spice_level, 
         calories: dish.calories || '', preparation_time: dish.preparation_time || '', 
         is_available: dish.is_available, is_featured: dish.is_featured,
+        ar_enabled: !!dish.ar_enabled,
         taste_tags: typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : (dish.taste_tags || [])
       });
     } else {
@@ -100,10 +106,13 @@ const ManageDishes = () => {
         name: '', description: '', ingredients: '',
         category: '', price: '', spice_level: '0', calories: '', 
         preparation_time: '', is_available: true, is_featured: false,
+        ar_enabled: false,
         taste_tags: []
       });
     }
     setImageFile(null);
+    setArImageFile(null);
+    setCropImageSrc(null);
     setIsModalOpen(true);
   };
 
@@ -120,6 +129,7 @@ const ManageDishes = () => {
       }
     });
     if (imageFile) submitData.append('image', imageFile);
+    if (arImageFile) submitData.append('ar_image', arImageFile);
 
     try {
       if (editingId) {
@@ -267,6 +277,57 @@ const ManageDishes = () => {
             <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="form-control" />
           </div>
 
+          <div className="form-group" style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: subscription?.features?.arAccess ? 'pointer' : 'not-allowed', fontWeight: 'bold', opacity: subscription?.features?.arAccess ? 1 : 0.6 }}>
+                <input 
+                  type="checkbox" 
+                  id="ar_enabled" 
+                  checked={formData.ar_enabled} 
+                  onChange={(e) => {
+                    if (!subscription?.features?.arAccess) {
+                      e.preventDefault();
+                      setUpgradeModal({
+                        isOpen: true,
+                        featureName: 'AR Previews',
+                        message: 'AR Previews are only available on the Pro and Premium plans.',
+                        limitReached: false
+                      });
+                      return;
+                    }
+                    handleChange(e);
+                  }} 
+                  disabled={!subscription?.features?.arAccess}
+                />
+                Enable AR Preview
+                {!subscription?.features?.arAccess && <Lock size={14} className="text-muted" />}
+              </label>
+            </div>
+            
+            {formData.ar_enabled && (
+              <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
+                <label className="form-label">AR Asset (Transparent PNG)</label>
+                <input 
+                  type="file" 
+                  accept="image/png" 
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setCropImageSrc(reader.result);
+                        setIsCropperOpen(true);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} 
+                  className="form-control" 
+                />
+                {arImageFile && <p style={{ fontSize: '0.875rem', color: '#16a34a', marginTop: '0.5rem' }}>✓ AR asset ready for upload</p>}
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '1.5rem', marginTop: '0.5rem' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
               <input type="checkbox" id="is_available" checked={formData.is_available} onChange={handleChange} />
@@ -290,6 +351,16 @@ const ManageDishes = () => {
         featureName={upgradeModal.featureName}
         message={upgradeModal.message}
         limitReached={upgradeModal.limitReached}
+      />
+
+      <ImageCropper 
+        isOpen={isCropperOpen} 
+        imageSrc={cropImageSrc} 
+        onClose={() => setIsCropperOpen(false)} 
+        onCropComplete={(file) => {
+          setArImageFile(file);
+          setIsCropperOpen(false);
+        }} 
       />
     </div>
   );

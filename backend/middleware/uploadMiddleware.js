@@ -7,6 +7,7 @@ const storage = multer.diskStorage({
     let folder = 'uploads/';
     if (file.fieldname === 'logo') folder = 'uploads/logos/';
     else if (file.fieldname === 'banner') folder = 'uploads/banners/';
+    else if (file.fieldname === 'ar_image') folder = 'uploads/ar-assets/temp/'; // Temp folder for pre-optimized AR images
     else folder = 'uploads/dishes/';
     
     // Ensure directory exists
@@ -32,7 +33,7 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 10 * 1024 * 1024 // 10MB limit (AR assets might be large before compression)
   },
   fileFilter: fileFilter
 });

@@ -1,0 +1,134 @@
+.ar-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+  background-color: #000;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.ar-camera-feed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+}
+
+.ar-fallback-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background: radial-gradient(circle at center, #f8fafc 0%, #cbd5e1 100%);
+}
+
+.ar-scene {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ar-dish-wrapper {
+  position: relative;
+  will-change: transform;
+  transform-origin: center center;
+}
+
+.ar-dish-image {
+  width: 300px;
+  height: auto;
+  pointer-events: none;
+  filter: drop-shadow(0px 30px 20px rgba(0, 0, 0, 0.5));
+}
+
+.ar-low-perf .ar-dish-image {
+  filter: drop-shadow(0px 10px 10px rgba(0, 0, 0, 0.3)); /* Simplify shadow on low-end devices */
+}
+
+.ar-ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.ar-close-btn {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+  border: none;
+  color: white;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 4;
+}
+
+.ar-watermark {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  margin-bottom: 20px;
+  text-shadow: 0px 1px 3px rgba(0,0,0,0.8);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.ar-instructions {
+  text-align: center;
+  color: white;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  padding: 10px 20px;
+  border-radius: 20px;
+  margin-top: 40px;
+  align-self: center;
+  font-size: 0.875rem;
+  pointer-events: auto;
+  animation: fadeOut 3s forwards;
+  animation-delay: 4s;
+}
+
+.ar-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255,255,255,0.9);
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+@keyframes fadeOut {
+  to { opacity: 0; visibility: hidden; }
+}

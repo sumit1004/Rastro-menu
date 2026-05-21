@@ -9,19 +9,25 @@ const PLAN_LIMITS = {
     maxDishes: 10,
     analyticsAccess: 'basic',
     customBranding: false,
-    prioritySupport: false
+    prioritySupport: false,
+    arAccess: false,
+    premiumAr: false
   },
   [PLANS.PRO]: {
     maxDishes: Infinity,
     analyticsAccess: 'advanced',
     customBranding: false,
-    prioritySupport: false
+    prioritySupport: false,
+    arAccess: true,
+    premiumAr: false
   },
   [PLANS.PREMIUM]: {
     maxDishes: Infinity,
     analyticsAccess: 'advanced',
     customBranding: true,
-    prioritySupport: true
+    prioritySupport: true,
+    arAccess: true,
+    premiumAr: true
   }
 };
 

@@ -17,6 +17,7 @@ const trackingLimiter = rateLimit({
 router.post('/track-session', trackingLimiter, analyticsController.trackSession);
 router.post('/track-view', trackingLimiter, analyticsController.trackDishView);
 router.post('/track-search', trackingLimiter, analyticsController.trackSearch);
+router.post('/track-ar-event', trackingLimiter, analyticsController.trackAREvent);
 router.get('/trending/:restaurantId', analyticsController.getTrendingDishes);
 
 // Protected dashboard routes

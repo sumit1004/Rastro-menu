@@ -33,6 +33,21 @@ exports.trackSearch = async (req, res) => {
   }
 };
 
+exports.trackAREvent = async (req, res) => {
+  try {
+    const { restaurantId, dishId, eventType, durationSeconds } = req.body;
+    const db = require('../config/db');
+    await db.query(
+      `INSERT INTO ar_interactions (restaurant_id, dish_id, event_type, duration_seconds) VALUES (?, ?, ?, ?)`,
+      [restaurantId, dishId, eventType, durationSeconds || 0]
+    );
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("AR Tracking Error:", error);
+    res.status(500).json({ error: 'Failed to track AR event' });
+  }
+};
+
 exports.getDashboardMetrics = async (req, res) => {
   try {
     const { restaurantId } = req.params;

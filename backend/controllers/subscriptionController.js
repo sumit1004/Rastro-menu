@@ -22,6 +22,8 @@ const deriveFeatures = (plan) => {
     qrMenuDownload: true, // available to all
     reviewManagement: true,
     multipleCategories: plan !== 'free',
+    arAccess: !!limits.arAccess,
+    premiumAr: !!limits.premiumAr,
   };
 };
 
