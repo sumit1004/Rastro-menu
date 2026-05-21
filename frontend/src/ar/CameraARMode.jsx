@@ -21,6 +21,17 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     return 1.0;
   }, [dish.name, dish.category]);
 
+  const spriteConfig = useMemo(() => {
+    if (dish.ar_asset_type === 'sprite-sheet' && dish.ar_sprite_config) {
+      try {
+        return typeof dish.ar_sprite_config === 'string' ? JSON.parse(dish.ar_sprite_config) : dish.ar_sprite_config;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }, [dish]);
+
   // Interaction State
   const interaction = useRef({
     scale: baseScale,
@@ -100,32 +111,51 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     textureLoader.setCrossOrigin('anonymous');
     
     textureLoader.load(getImageUrl(dish.ar_image_url), (texture) => {
-      const aspect = texture.image.width / texture.image.height;
-      const geometry = new THREE.PlaneGeometry(3, 3);
-      geometry.scale(1, 1/aspect, 1);
-
-      // STEP 7: PSEUDO-THICKNESS (Layered Extrusion Illusion)
-      // Instead of 1 plane, stack multiple planes with Z-offsets
-      const layers = performanceClass === 'low' ? 1 : 5; // Fallback to 1 layer if weak device
-      const layerSpacing = 0.015; // Z depth per layer
-
-      for (let i = 0; i < layers; i++) {
-        // Darken the middle layers to simulate edge shadow
-        const isEdge = i > 0 && i < layers - 1;
-        const color = isEdge ? 0x888888 : 0xffffff;
-
+      let geometry;
+      
+      if (spriteConfig) {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(1 / spriteConfig.columns, 1 / spriteConfig.rows);
+        
+        const frameAspect = (texture.image.width / spriteConfig.columns) / (texture.image.height / spriteConfig.rows);
+        geometry = new THREE.PlaneGeometry(3, 3);
+        geometry.scale(1, 1 / frameAspect, 1);
+        
         const material = new THREE.MeshLambertMaterial({ 
           map: texture, 
           transparent: true,
           alphaTest: 0.1,
-          side: THREE.DoubleSide,
-          color: color
+          side: THREE.DoubleSide
         });
         
         const mesh = new THREE.Mesh(geometry, material);
-        // Stack them along the local Z axis
-        mesh.position.z = (i - Math.floor(layers / 2)) * layerSpacing;
         dishGroup.add(mesh);
+      } else {
+        const aspect = texture.image.width / texture.image.height;
+        geometry = new THREE.PlaneGeometry(3, 3);
+        geometry.scale(1, 1/aspect, 1);
+
+        // STEP 7: PSEUDO-THICKNESS (Layered Extrusion Illusion)
+        const layers = performanceClass === 'low' ? 1 : 5;
+        const layerSpacing = 0.015;
+
+        for (let i = 0; i < layers; i++) {
+          const isEdge = i > 0 && i < layers - 1;
+          const color = isEdge ? 0x888888 : 0xffffff;
+
+          const material = new THREE.MeshLambertMaterial({ 
+            map: texture, 
+            transparent: true,
+            alphaTest: 0.1,
+            side: THREE.DoubleSide,
+            color: color
+          });
+          
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.position.z = (i - Math.floor(layers / 2)) * layerSpacing;
+          dishGroup.add(mesh);
+        }
       }
 
       dishGroup.rotation.x = interaction.current.rotationX;
@@ -186,7 +216,26 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
 
       // Apply Rotations
       dishGroup.rotation.x = interaction.current.rotationX;
-      dishGroup.rotation.y = interaction.current.rotationY;
+      
+      if (spriteConfig && dishGroup.children[0]?.material?.map) {
+        // Frame Swapping Logic
+        const texture = dishGroup.children[0].material.map;
+        const maxRot = Math.PI / 9; // 20 degrees bounds
+        // Map current rotationY to [0, 1] across the available frames
+        const normalizedRot = Math.max(0, Math.min(1, (interaction.current.rotationY + maxRot) / (maxRot * 2)));
+        
+        const frameIndex = Math.floor(normalizedRot * (spriteConfig.columns - 1));
+        const col = frameIndex % spriteConfig.columns;
+        const row = Math.floor(frameIndex / spriteConfig.columns);
+        
+        texture.offset.x = col / spriteConfig.columns;
+        texture.offset.y = 1 - ((row + 1) / spriteConfig.rows);
+        
+        // Do not physically rotate the plane on Y when in sprite mode
+        dishGroup.rotation.y = 0;
+      } else {
+        dishGroup.rotation.y = interaction.current.rotationY;
+      }
 
       // Dynamic Shadow Morphing (Step 9)
       if (shadowMeshRef) {

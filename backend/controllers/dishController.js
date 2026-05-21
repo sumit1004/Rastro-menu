@@ -60,6 +60,14 @@ const addDish = async (req, res) => {
     const ar_enabled = req.body.ar_enabled === 'true' || req.body.ar_enabled === true;
     let ar_image_url = null;
     const ar_asset_type = req.body.ar_asset_type || 'pseudo-3d';
+    let ar_sprite_config = null;
+    
+    if (ar_asset_type === 'sprite-sheet' && req.body.ar_sprite_rows && req.body.ar_sprite_columns) {
+      ar_sprite_config = JSON.stringify({
+        rows: parseInt(req.body.ar_sprite_rows, 10) || 1,
+        columns: parseInt(req.body.ar_sprite_columns, 10) || 1
+      });
+    }
 
     let imageUrl = null;
     let thumbnailUrl = null;
@@ -78,9 +86,9 @@ const addDish = async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO dishes 
-      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, ar_asset_type) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, ar_asset_type]
+      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config]
     );
 
     res.status(201).json({ message: 'Dish added', id: result.insertId });
@@ -118,6 +126,16 @@ const updateDish = async (req, res) => {
     const ar_enabled = req.body.ar_enabled === 'true' || req.body.ar_enabled === true;
     let ar_image_url = existing[0].ar_image_url;
     const ar_asset_type = req.body.ar_asset_type || existing[0].ar_asset_type || 'pseudo-3d';
+    let ar_sprite_config = existing[0].ar_sprite_config;
+    
+    if (req.body.ar_asset_type === 'sprite-sheet' && req.body.ar_sprite_rows && req.body.ar_sprite_columns) {
+      ar_sprite_config = JSON.stringify({
+        rows: parseInt(req.body.ar_sprite_rows, 10) || 1,
+        columns: parseInt(req.body.ar_sprite_columns, 10) || 1
+      });
+    } else if (req.body.ar_asset_type === 'pseudo-3d') {
+      ar_sprite_config = null;
+    }
 
     let imageUrl = existing[0].image_url;
     let thumbnailUrl = existing[0].thumbnail_url;
@@ -138,9 +156,9 @@ const updateDish = async (req, res) => {
       name = ?, short_description = ?, description = ?, ingredients = ?, category = ?, 
       price = ?, spice_level = ?, calories = ?, preparation_time = ?, image_url = ?, thumbnail_url = ?, 
       is_available = ?, is_featured = ?, ai_description = ?, taste_tags = ?, ai_category = ?, ai_enhanced_image = ?,
-      ar_enabled = ?, ar_image_url = ?, ar_asset_type = ?
+      ar_enabled = ?, ar_image_url = ?, ar_asset_type = ?, ar_sprite_config = ?
       WHERE id = ?`,
-      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, ar_asset_type, dishId]
+      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, dishId]
     );
 
     res.json({ message: 'Dish updated' });

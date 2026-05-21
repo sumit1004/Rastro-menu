@@ -24,6 +24,9 @@ const ManageDishes = () => {
     category: '', price: '', spice_level: '0', calories: '', 
     preparation_time: '', is_available: true, is_featured: false,
     ar_enabled: false,
+    ar_asset_type: 'pseudo-3d',
+    ar_sprite_rows: 1,
+    ar_sprite_columns: 12,
     taste_tags: []
   });
   const [imageFile, setImageFile] = useState(null);
@@ -98,6 +101,9 @@ const ManageDishes = () => {
         calories: dish.calories || '', preparation_time: dish.preparation_time || '', 
         is_available: dish.is_available, is_featured: dish.is_featured,
         ar_enabled: !!dish.ar_enabled,
+        ar_asset_type: dish.ar_asset_type || 'pseudo-3d',
+        ar_sprite_rows: dish.ar_sprite_config?.rows || 1,
+        ar_sprite_columns: dish.ar_sprite_config?.columns || 12,
         taste_tags: typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : (dish.taste_tags || [])
       });
     } else {
@@ -107,6 +113,9 @@ const ManageDishes = () => {
         category: '', price: '', spice_level: '0', calories: '', 
         preparation_time: '', is_available: true, is_featured: false,
         ar_enabled: false,
+        ar_asset_type: 'pseudo-3d',
+        ar_sprite_rows: 1,
+        ar_sprite_columns: 12,
         taste_tags: []
       });
     }
@@ -305,25 +314,59 @@ const ManageDishes = () => {
             </div>
             
             {formData.ar_enabled && (
-              <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                <label className="form-label">AR Asset (Transparent PNG)</label>
-                <input 
-                  type="file" 
-                  accept="image/png" 
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        setCropImageSrc(reader.result);
-                        setIsCropperOpen(true);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }} 
-                  className="form-control" 
-                />
-                {arImageFile && <p style={{ fontSize: '0.875rem', color: '#16a34a', marginTop: '0.5rem' }}>✓ AR asset ready for upload</p>}
+              <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <label className="form-label">AR Asset Type</label>
+                    <select id="ar_asset_type" value={formData.ar_asset_type} onChange={handleChange} className="form-control">
+                      <option value="pseudo-3d">Standard AR Image</option>
+                      <option value="sprite-sheet">AR Sprite Sheet (Volumetric)</option>
+                    </select>
+                  </div>
+                  {formData.ar_asset_type === 'sprite-sheet' && (
+                    <>
+                      <div style={{ width: '80px' }}>
+                        <label className="form-label">Rows</label>
+                        <input type="number" id="ar_sprite_rows" value={formData.ar_sprite_rows} onChange={handleChange} className="form-control" min="1" />
+                      </div>
+                      <div style={{ width: '80px' }}>
+                        <label className="form-label">Columns</label>
+                        <input type="number" id="ar_sprite_columns" value={formData.ar_sprite_columns} onChange={handleChange} className="form-control" min="1" />
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <div>
+                  <label className="form-label">AR Asset File (Transparent PNG)</label>
+                  <input 
+                    type="file" 
+                    accept="image/png" 
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          setCropImageSrc(reader.result);
+                          if (formData.ar_asset_type === 'sprite-sheet') {
+                            setArImageFile(file); // Bypass cropper
+                            setIsCropperOpen(false);
+                          } else {
+                            setIsCropperOpen(true); // Open cropper for single image
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }} 
+                    className="form-control" 
+                  />
+                  {arImageFile && formData.ar_asset_type === 'sprite-sheet' && cropImageSrc && (
+                    <div style={{ marginTop: '1rem', border: '1px solid #cbd5e1', borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: '#e2e8f0', position: 'relative', width: '100%', height: '120px' }}>
+                       <img src={cropImageSrc} alt="Sprite Preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    </div>
+                  )}
+                  {arImageFile && <p style={{ fontSize: '0.875rem', color: '#16a34a', marginTop: '0.5rem' }}>✓ AR asset ready for upload</p>}
+                </div>
               </div>
             )}
           </div>
