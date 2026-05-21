@@ -68,6 +68,11 @@ const addDish = async (req, res) => {
         columns: parseInt(req.body.ar_sprite_columns, 10) || 1
       });
     }
+    
+    let ar_video_url = null;
+    if (req.files && req.files['ar_video']) {
+      ar_video_url = `/uploads/ar-assets/video/${req.files['ar_video'][0].filename}`;
+    }
 
     let imageUrl = null;
     let thumbnailUrl = null;
@@ -86,9 +91,9 @@ const addDish = async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO dishes 
-      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config]
+      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, ar_video_url) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, ar_video_url]
     );
 
     res.status(201).json({ message: 'Dish added', id: result.insertId });
@@ -136,6 +141,11 @@ const updateDish = async (req, res) => {
     } else if (req.body.ar_asset_type === 'pseudo-3d') {
       ar_sprite_config = null;
     }
+    
+    let ar_video_url = existing[0].ar_video_url;
+    if (req.files && req.files['ar_video']) {
+      ar_video_url = `/uploads/ar-assets/video/${req.files['ar_video'][0].filename}`;
+    }
 
     let imageUrl = existing[0].image_url;
     let thumbnailUrl = existing[0].thumbnail_url;
@@ -156,9 +166,9 @@ const updateDish = async (req, res) => {
       name = ?, short_description = ?, description = ?, ingredients = ?, category = ?, 
       price = ?, spice_level = ?, calories = ?, preparation_time = ?, image_url = ?, thumbnail_url = ?, 
       is_available = ?, is_featured = ?, ai_description = ?, taste_tags = ?, ai_category = ?, ai_enhanced_image = ?,
-      ar_enabled = ?, ar_image_url = ?, ar_asset_type = ?, ar_sprite_config = ?
+      ar_enabled = ?, ar_image_url = ?, ar_asset_type = ?, ar_sprite_config = ?, ar_video_url = ?
       WHERE id = ?`,
-      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, dishId]
+      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, ar_video_url, dishId]
     );
 
     res.json({ message: 'Dish updated' });

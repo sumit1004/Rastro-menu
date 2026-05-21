@@ -8,6 +8,7 @@ const storage = multer.diskStorage({
     if (file.fieldname === 'logo') folder = 'uploads/logos/';
     else if (file.fieldname === 'banner') folder = 'uploads/banners/';
     else if (file.fieldname === 'ar_image') folder = 'uploads/ar-assets/temp/'; // Temp folder for pre-optimized AR images
+    else if (file.fieldname === 'ar_video') folder = 'uploads/ar-assets/video/';
     else folder = 'uploads/dishes/';
     
     // Ensure directory exists
@@ -25,8 +26,10 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   if (file.mimetype.startsWith('image')) {
     cb(null, true);
+  } else if (file.fieldname === 'ar_video' && file.mimetype.startsWith('video')) {
+    cb(null, true);
   } else {
-    cb(new Error('Not an image! Please upload only images.'), false);
+    cb(new Error('Invalid file type! Only images and AR videos are allowed.'), false);
   }
 };
 

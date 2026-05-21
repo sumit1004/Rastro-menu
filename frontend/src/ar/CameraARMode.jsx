@@ -21,16 +21,7 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     return 1.0;
   }, [dish.name, dish.category]);
 
-  const spriteConfig = useMemo(() => {
-    if (dish.ar_asset_type === 'sprite-sheet' && dish.ar_sprite_config) {
-      try {
-        return typeof dish.ar_sprite_config === 'string' ? JSON.parse(dish.ar_sprite_config) : dish.ar_sprite_config;
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  }, [dish]);
+  const isCinematic = dish.ar_asset_type === 'cinematic';
 
   // Interaction State
   const interaction = useRef({
@@ -38,13 +29,8 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     targetScale: baseScale,
     position: new THREE.Vector3(0, -1, -5),
     targetPosition: new THREE.Vector3(0, -1, -5),
-    rotationX: -Math.PI / 2.5, // Base tabletop tilt
-    targetRotationX: -Math.PI / 2.5,
-    rotationY: 0,
-    targetRotationY: 0,
     isDragging: false,
     initialDistance: null,
-    initialAngle: null,
     lastTouch: null
   });
 
@@ -103,80 +89,32 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     // Entry Animation Initial State
     dishGroup.position.set(0, 2, -5);
     interaction.current.targetPosition.set(0, -1, -5);
+    dishGroup.rotation.x = -Math.PI / 2.5; // Fixed table tilt
 
-    // Dynamic Shadow Mesh Ref
     let shadowMeshRef = null;
     
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.setCrossOrigin('anonymous');
-    
-    textureLoader.load(getImageUrl(dish.ar_image_url), (texture) => {
-      let geometry;
-      
-      if (spriteConfig) {
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        texture.minFilter = THREE.NearestFilter; // Fix 1: Stop texture bleeding
-        texture.magFilter = THREE.NearestFilter;
-        texture.repeat.set(1 / spriteConfig.columns, 1 / spriteConfig.rows);
-        
-        // Fix 2: Correct dynamic aspect ratio
-        const frameWidth = texture.image.width / spriteConfig.columns;
-        const frameHeight = texture.image.height / spriteConfig.rows;
-        const frameAspect = frameWidth / frameHeight;
-        geometry = new THREE.PlaneGeometry(3 * frameAspect, 3);
-        
-        // Fix 6: Frame interpolation setup (2 overlapping planes)
-        const materialA = new THREE.MeshLambertMaterial({ 
-          map: texture, 
-          transparent: true,
-          alphaTest: 0.1,
-          side: THREE.DoubleSide
-        });
-        const materialB = new THREE.MeshLambertMaterial({ 
-          map: texture.clone(), 
-          transparent: true,
-          alphaTest: 0.1,
-          side: THREE.DoubleSide
-        });
-        materialB.map.needsUpdate = true;
-        
-        const meshA = new THREE.Mesh(geometry, materialA);
-        const meshB = new THREE.Mesh(geometry, materialB);
-        meshB.position.z = 0.001; // Avoid z-fighting
-        
-        dishGroup.add(meshA);
-        dishGroup.add(meshB);
+    const setupGeometry = (texture, isVideo = false) => {
+      let aspect = 1;
+      if (isVideo) {
+        aspect = texture.image.videoWidth / texture.image.videoHeight || 1;
       } else {
-        const aspect = texture.image.width / texture.image.height;
-        geometry = new THREE.PlaneGeometry(3, 3);
-        geometry.scale(1, 1/aspect, 1);
-
-        // STEP 7: PSEUDO-THICKNESS (Layered Extrusion Illusion)
-        const layers = performanceClass === 'low' ? 1 : 5;
-        const layerSpacing = 0.015;
-
-        for (let i = 0; i < layers; i++) {
-          const isEdge = i > 0 && i < layers - 1;
-          const color = isEdge ? 0x888888 : 0xffffff;
-
-          const material = new THREE.MeshLambertMaterial({ 
-            map: texture, 
-            transparent: true,
-            alphaTest: 0.1,
-            side: THREE.DoubleSide,
-            color: color
-          });
-          
-          const mesh = new THREE.Mesh(geometry, material);
-          mesh.position.z = (i - Math.floor(layers / 2)) * layerSpacing;
-          dishGroup.add(mesh);
-        }
+        aspect = texture.image.width / texture.image.height || 1;
       }
+      
+      const geometry = new THREE.PlaneGeometry(3, 3);
+      geometry.scale(1, 1 / aspect, 1);
+      
+      const material = new THREE.MeshBasicMaterial({ 
+        map: texture, 
+        transparent: true,
+        alphaTest: 0.1,
+        side: THREE.DoubleSide
+      });
+      
+      const mesh = new THREE.Mesh(geometry, material);
+      dishGroup.add(mesh);
 
-      dishGroup.rotation.x = interaction.current.rotationX;
-
-      // STEP 9: DYNAMIC SHADOW SYSTEM
+      // Shadow Canvas
       const shadowCanvas = document.createElement('canvas');
       shadowCanvas.width = 256;
       shadowCanvas.height = 256;
@@ -203,7 +141,30 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       
       shadowMeshRef = shadowMesh;
       dishGroup.add(shadowMesh);
-    });
+    };
+
+    if (isCinematic && dish.ar_video_url) {
+      const videoEl = document.createElement('video');
+      videoEl.crossOrigin = 'anonymous';
+      videoEl.loop = true;
+      videoEl.muted = true;
+      videoEl.playsInline = true;
+      videoEl.src = getImageUrl(dish.ar_video_url);
+      
+      videoEl.addEventListener('loadedmetadata', () => {
+        videoEl.play();
+        const videoTexture = new THREE.VideoTexture(videoEl);
+        videoTexture.minFilter = THREE.LinearFilter;
+        videoTexture.magFilter = THREE.LinearFilter;
+        setupGeometry(videoTexture, true);
+      });
+    } else if (dish.ar_image_url) {
+      const textureLoader = new THREE.TextureLoader();
+      textureLoader.setCrossOrigin('anonymous');
+      textureLoader.load(getImageUrl(dish.ar_image_url), (texture) => {
+        setupGeometry(texture, false);
+      });
+    }
 
     // 3. Render & Physics Loop
     let animationFrameId;
@@ -215,8 +176,6 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
 
       // Inertia / Damping Interpolation
       interaction.current.scale += (interaction.current.targetScale - interaction.current.scale) * 0.1;
-      interaction.current.rotationX += (interaction.current.targetRotationX - interaction.current.rotationX) * 0.1;
-      interaction.current.rotationY += (interaction.current.targetRotationY - interaction.current.rotationY) * 0.1;
       interaction.current.position.lerp(interaction.current.targetPosition, 0.08);
 
       dishGroup.scale.setScalar(interaction.current.scale);
@@ -225,55 +184,12 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       // Floating Idle
       if (!interaction.current.isDragging) {
         dishGroup.position.y += Math.sin(time * 2) * 0.0015;
-        // Step 8: Tabletop Anchor (Slowly drift back to center if pushed too far)
-        interaction.current.targetPosition.x += (0 - interaction.current.targetPosition.x) * 0.01;
-        interaction.current.targetPosition.y += (-1 - interaction.current.targetPosition.y) * 0.01;
-      }
-
-      // Apply Rotations
-      dishGroup.rotation.x = interaction.current.rotationX;
-      
-      if (spriteConfig && dishGroup.children.length >= 2) {
-        const meshA = dishGroup.children[0];
-        const meshB = dishGroup.children[1];
-        
-        if (meshA.material.map && meshB.material.map) {
-          const maxRot = Math.PI / 9; // 20 degrees bounds
-          const normalizedRot = Math.max(0, Math.min(1, (interaction.current.rotationY + maxRot) / (maxRot * 2)));
-          
-          const maxFrameIndex = spriteConfig.columns * spriteConfig.rows - 1;
-          const floatFrame = normalizedRot * maxFrameIndex;
-          
-          const frameIndexA = Math.floor(floatFrame);
-          const frameIndexB = Math.min(maxFrameIndex, frameIndexA + 1);
-          const blendFactor = floatFrame - frameIndexA;
-          
-          // Fix 6: Blend opacities
-          meshA.material.opacity = 1 - blendFactor;
-          meshB.material.opacity = blendFactor;
-          
-          // Offset A
-          const colA = frameIndexA % spriteConfig.columns;
-          const rowA = Math.floor(frameIndexA / spriteConfig.columns);
-          meshA.material.map.offset.x = colA / spriteConfig.columns;
-          meshA.material.map.offset.y = 1 - ((rowA + 1) / spriteConfig.rows);
-          
-          // Offset B
-          const colB = frameIndexB % spriteConfig.columns;
-          const rowB = Math.floor(frameIndexB / spriteConfig.columns);
-          meshB.material.map.offset.x = colB / spriteConfig.columns;
-          meshB.material.map.offset.y = 1 - ((rowB + 1) / spriteConfig.rows);
-        }
-        
-        dishGroup.rotation.y = 0;
-      } else {
-        dishGroup.rotation.y = interaction.current.rotationY;
       }
 
       // Dynamic Shadow Morphing (Step 9)
       if (shadowMeshRef) {
-        // Counter-rotate shadow to keep it flat on the floor regardless of object rotation
-        shadowMeshRef.rotation.x = -Math.PI / 2 - interaction.current.rotationX;
+        // Counter-rotate shadow to keep it flat on the floor
+        shadowMeshRef.rotation.x = -Math.PI / 2 - dishGroup.rotation.x;
         // Scale shadow slightly as object floats up/down or rotates
         const hoverOffset = Math.max(0, dishGroup.position.y + 1);
         shadowMeshRef.scale.setScalar(1 + hoverOffset * 0.2);
@@ -352,18 +268,13 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       const deltaX = e.touches[0].clientX - interaction.current.lastTouch.x;
       const deltaY = e.touches[0].clientY - interaction.current.lastTouch.y;
       
-      // Step 6: Bounded Rotation
-      // Map drag to rotation instead of position for true volumetric feel
-      // Limit X to +/- 15 deg from base tabletop angle
-      const baseX = -Math.PI / 2.5;
-      const rotLimitX = Math.PI / 12; // 15 degrees
-      const rotLimitY = Math.PI / 9;  // 20 degrees
+      // Panning instead of rotation
+      interaction.current.targetPosition.x += deltaX * 0.01;
+      interaction.current.targetPosition.y -= deltaY * 0.01;
       
-      let newRotX = interaction.current.targetRotationX + deltaY * 0.005;
-      let newRotY = interaction.current.targetRotationY + deltaX * 0.005;
-
-      interaction.current.targetRotationX = Math.max(baseX - rotLimitX, Math.min(baseX + rotLimitX, newRotX));
-      interaction.current.targetRotationY = Math.max(-rotLimitY, Math.min(rotLimitY, newRotY));
+      // Bounding box for pan
+      interaction.current.targetPosition.x = Math.max(-3, Math.min(3, interaction.current.targetPosition.x));
+      interaction.current.targetPosition.y = Math.max(-3, Math.min(1, interaction.current.targetPosition.y));
       
       interaction.current.lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     } else if (e.touches.length === 2 && interaction.current.initialDistance) {
@@ -378,9 +289,9 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     interaction.current.initialDistance = null;
     interaction.current.lastTouch = null;
     
-    // Auto-return rotation to standard tabletop view slowly
-    interaction.current.targetRotationX = -Math.PI / 2.5;
-    interaction.current.targetRotationY = 0;
+    // Slowly drift back to center on release
+    interaction.current.targetPosition.x = 0;
+    interaction.current.targetPosition.y = -1;
   };
 
   return (
@@ -396,7 +307,7 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       />
       <div className="ar-ui-overlay">
         <button className="ar-close-btn" onClick={onClose}><X size={24} /></button>
-        <div className="ar-instructions">Drag to inspect • Pinch to scale</div>
+        <div className="ar-instructions">Drag to pan • Pinch to scale</div>
         <div className="ar-watermark">Powered by Rastro-menu 3D Engine</div>
       </div>
     </>
