@@ -21,14 +21,16 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     return 1.0;
   }, [dish.name, dish.category]);
 
-  // Touch tracking state (refs for Three.js animation loop)
+  // Interaction State
   const interaction = useRef({
     scale: baseScale,
     targetScale: baseScale,
     position: new THREE.Vector3(0, -1, -5),
     targetPosition: new THREE.Vector3(0, -1, -5),
-    rotation: 0,
-    targetRotation: 0,
+    rotationX: -Math.PI / 2.5, // Base tabletop tilt
+    targetRotationX: -Math.PI / 2.5,
+    rotationY: 0,
+    targetRotationY: 0,
     isDragging: false,
     initialDistance: null,
     initialAngle: null,
@@ -44,7 +46,7 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     let stream = null;
     let isMounted = true;
     
-    // 1. Setup Camera Stream
+    // 1. Camera Stream
     const initCamera = async () => {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ 
@@ -60,19 +62,17 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     };
     initCamera();
 
-    // 2. Setup Three.js
+    // 2. Three.js Scene Setup
     const width = window.innerWidth;
     const height = window.innerHeight;
-
     const scene = new THREE.Scene();
     
     const camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 100);
-    // Move camera back slightly to see origin
     camera.position.set(0, 0, 0); 
 
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: performanceClass !== 'low' });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // optimize
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     
     if (containerRef.current) {
       containerRef.current.appendChild(renderer.domElement);
@@ -81,53 +81,69 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     // Lights
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    dirLight.position.set(2, 5, 3);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(2, 6, 4);
     scene.add(dirLight);
 
-    // Geometry Group for Dish
+    // Group for the entire volumetric object
     const dishGroup = new THREE.Group();
     scene.add(dishGroup);
 
-    // Initial settle animation
+    // Entry Animation Initial State
     dishGroup.position.set(0, 2, -5);
-    interaction.current.targetPosition.set(0, -1, -5); // Target settle
+    interaction.current.targetPosition.set(0, -1, -5);
+
+    // Dynamic Shadow Mesh Ref
+    let shadowMeshRef = null;
     
-    // Load Texture
     const textureLoader = new THREE.TextureLoader();
     textureLoader.setCrossOrigin('anonymous');
     
     textureLoader.load(getImageUrl(dish.ar_image_url), (texture) => {
-      // Create Dish Plane
-      const geometry = new THREE.PlaneGeometry(3, 3); // Base size
-      // Use aspect ratio
       const aspect = texture.image.width / texture.image.height;
+      const geometry = new THREE.PlaneGeometry(3, 3);
       geometry.scale(1, 1/aspect, 1);
 
-      const material = new THREE.MeshLambertMaterial({ 
-        map: texture, 
-        transparent: true,
-        alphaTest: 0.1,
-        side: THREE.DoubleSide
-      });
-      const dishMesh = new THREE.Mesh(geometry, material);
-      // Tabletop tilt (rotate back so it lays flat)
-      dishMesh.rotation.x = -Math.PI / 2.5; // ~ -70 degrees
-      dishGroup.add(dishMesh);
+      // STEP 7: PSEUDO-THICKNESS (Layered Extrusion Illusion)
+      // Instead of 1 plane, stack multiple planes with Z-offsets
+      const layers = performanceClass === 'low' ? 1 : 5; // Fallback to 1 layer if weak device
+      const layerSpacing = 0.015; // Z depth per layer
 
-      // Create Shadow Plane
+      for (let i = 0; i < layers; i++) {
+        // Darken the middle layers to simulate edge shadow
+        const isEdge = i > 0 && i < layers - 1;
+        const color = isEdge ? 0x888888 : 0xffffff;
+
+        const material = new THREE.MeshLambertMaterial({ 
+          map: texture, 
+          transparent: true,
+          alphaTest: 0.1,
+          side: THREE.DoubleSide,
+          color: color
+        });
+        
+        const mesh = new THREE.Mesh(geometry, material);
+        // Stack them along the local Z axis
+        mesh.position.z = (i - Math.floor(layers / 2)) * layerSpacing;
+        dishGroup.add(mesh);
+      }
+
+      dishGroup.rotation.x = interaction.current.rotationX;
+
+      // STEP 9: DYNAMIC SHADOW SYSTEM
       const shadowCanvas = document.createElement('canvas');
-      shadowCanvas.width = 128;
-      shadowCanvas.height = 128;
+      shadowCanvas.width = 256;
+      shadowCanvas.height = 256;
       const ctx = shadowCanvas.getContext('2d');
-      const gradient = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
-      gradient.addColorStop(0, 'rgba(0,0,0,0.7)');
+      const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+      gradient.addColorStop(0, 'rgba(0,0,0,0.85)');
+      gradient.addColorStop(0.5, 'rgba(0,0,0,0.4)');
       gradient.addColorStop(1, 'rgba(0,0,0,0)');
       ctx.fillStyle = gradient;
-      ctx.fillRect(0, 0, 128, 128);
+      ctx.fillRect(0, 0, 256, 256);
 
       const shadowTexture = new THREE.CanvasTexture(shadowCanvas);
-      const shadowGeo = new THREE.PlaneGeometry(3.5, 3.5);
+      const shadowGeo = new THREE.PlaneGeometry(4.0, 4.0);
       const shadowMat = new THREE.MeshBasicMaterial({
         map: shadowTexture,
         transparent: true,
@@ -135,45 +151,60 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
         opacity: 0.8
       });
       const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
-      shadowMesh.rotation.x = -Math.PI / 2;
-      shadowMesh.position.y = -0.5; // slightly below dish
+      shadowMesh.rotation.x = -Math.PI / 2; // Flat on floor
+      shadowMesh.position.y = -0.6; // Below dish
       shadowMesh.position.z = -0.2;
+      
+      shadowMeshRef = shadowMesh;
       dishGroup.add(shadowMesh);
     });
 
-    // 3. Animation Loop
+    // 3. Render & Physics Loop
     let animationFrameId;
     const clock = new THREE.Clock();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
-      const dt = clock.getDelta();
+      const time = clock.getElapsedTime();
 
-      // Lerp positions (inertia)
-      interaction.current.scale += (interaction.current.targetScale - interaction.current.scale) * 0.15;
-      interaction.current.rotation += (interaction.current.targetRotation - interaction.current.rotation) * 0.15;
-      
-      interaction.current.position.lerp(interaction.current.targetPosition, 0.1);
+      // Inertia / Damping Interpolation
+      interaction.current.scale += (interaction.current.targetScale - interaction.current.scale) * 0.1;
+      interaction.current.rotationX += (interaction.current.targetRotationX - interaction.current.rotationX) * 0.1;
+      interaction.current.rotationY += (interaction.current.targetRotationY - interaction.current.rotationY) * 0.1;
+      interaction.current.position.lerp(interaction.current.targetPosition, 0.08);
 
       dishGroup.scale.setScalar(interaction.current.scale);
       dishGroup.position.copy(interaction.current.position);
       
-      // Floating animation
-      const time = clock.getElapsedTime();
+      // Floating Idle
       if (!interaction.current.isDragging) {
-        dishGroup.position.y += Math.sin(time * 2) * 0.002;
+        dishGroup.position.y += Math.sin(time * 2) * 0.0015;
+        // Step 8: Tabletop Anchor (Slowly drift back to center if pushed too far)
+        interaction.current.targetPosition.x += (0 - interaction.current.targetPosition.x) * 0.01;
+        interaction.current.targetPosition.y += (-1 - interaction.current.targetPosition.y) * 0.01;
       }
 
-      // Dish local rotation (twisting)
-      dishGroup.rotation.y = interaction.current.rotation;
+      // Apply Rotations
+      dishGroup.rotation.x = interaction.current.rotationX;
+      dishGroup.rotation.y = interaction.current.rotationY;
 
-      // Gyroscope Camera Parallax (move camera opposite to gyro target)
-      gyro.current.x += (gyro.current.targetX - gyro.current.x) * 0.1;
-      gyro.current.y += (gyro.current.targetY - gyro.current.y) * 0.1;
+      // Dynamic Shadow Morphing (Step 9)
+      if (shadowMeshRef) {
+        // Counter-rotate shadow to keep it flat on the floor regardless of object rotation
+        shadowMeshRef.rotation.x = -Math.PI / 2 - interaction.current.rotationX;
+        // Scale shadow slightly as object floats up/down or rotates
+        const hoverOffset = Math.max(0, dishGroup.position.y + 1);
+        shadowMeshRef.scale.setScalar(1 + hoverOffset * 0.2);
+        shadowMeshRef.material.opacity = 0.8 - hoverOffset * 0.3;
+      }
+
+      // Step 5: Hybrid Gyro Parallax (Move Camera)
+      gyro.current.x += (gyro.current.targetX - gyro.current.x) * 0.05;
+      gyro.current.y += (gyro.current.targetY - gyro.current.y) * 0.05;
 
       camera.position.x = gyro.current.x;
       camera.position.y = gyro.current.y;
-      camera.lookAt(0, -1, -5);
+      camera.lookAt(0, -1, -5); // Keep looking at table anchor
 
       renderer.render(scene, camera);
     };
@@ -184,16 +215,12 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       if (performanceClass === 'low') return;
       if (e.gamma === null || e.beta === null) return;
       
-      // Limit to max offset
       const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
-      
-      // Gamma is left/right (-90 to 90)
-      const moveX = clamp(e.gamma / 45, -1.5, 1.5);
-      // Beta is front/back (normal hold is around 45)
-      const moveY = clamp((e.beta - 45) / 45, -1.5, 1.5);
+      const moveX = clamp(e.gamma / 30, -1.2, 1.2);
+      const moveY = clamp((e.beta - 45) / 30, -1.2, 1.2);
 
       gyro.current.targetX = moveX;
-      gyro.current.targetY = -moveY; // inverse
+      gyro.current.targetY = -moveY; 
     };
     window.addEventListener('deviceorientation', handleOrientation);
 
@@ -212,7 +239,6 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
       
-      // Cleanup WebGL
       scene.clear();
       renderer.dispose();
       if (containerRef.current && containerRef.current.contains(renderer.domElement)) {
@@ -223,7 +249,6 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
 
   // Touch handlers
   const getDistance = (touch1, touch2) => Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
-  const getAngle = (touch1, touch2) => Math.atan2(touch2.clientY - touch1.clientY, touch2.clientX - touch1.clientX) * (180 / Math.PI);
 
   const handleTouchStart = (e) => {
     interaction.current.isDragging = true;
@@ -232,8 +257,6 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     } else if (e.touches.length === 2) {
       interaction.current.initialDistance = getDistance(e.touches[0], e.touches[1]);
       interaction.current.initialScale = interaction.current.targetScale;
-      interaction.current.initialAngle = getAngle(e.touches[0], e.touches[1]);
-      interaction.current.initialRotation = interaction.current.targetRotation;
     }
   };
 
@@ -243,21 +266,24 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       const deltaX = e.touches[0].clientX - interaction.current.lastTouch.x;
       const deltaY = e.touches[0].clientY - interaction.current.lastTouch.y;
       
-      // Map screen delta to world coordinates loosely
-      interaction.current.targetPosition.x += deltaX * 0.01;
-      interaction.current.targetPosition.y -= deltaY * 0.01;
+      // Step 6: Bounded Rotation
+      // Map drag to rotation instead of position for true volumetric feel
+      // Limit X to +/- 15 deg from base tabletop angle
+      const baseX = -Math.PI / 2.5;
+      const rotLimitX = Math.PI / 12; // 15 degrees
+      const rotLimitY = Math.PI / 9;  // 20 degrees
+      
+      let newRotX = interaction.current.targetRotationX + deltaY * 0.005;
+      let newRotY = interaction.current.targetRotationY + deltaX * 0.005;
+
+      interaction.current.targetRotationX = Math.max(baseX - rotLimitX, Math.min(baseX + rotLimitX, newRotX));
+      interaction.current.targetRotationY = Math.max(-rotLimitY, Math.min(rotLimitY, newRotY));
       
       interaction.current.lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     } else if (e.touches.length === 2 && interaction.current.initialDistance) {
       const currentDistance = getDistance(e.touches[0], e.touches[1]);
       const zoom = currentDistance / interaction.current.initialDistance;
-      // bounded scale
-      interaction.current.targetScale = Math.max(0.3, Math.min(interaction.current.initialScale * zoom, 3));
-
-      const currentAngle = getAngle(e.touches[0], e.touches[1]);
-      const angleDiff = currentAngle - interaction.current.initialAngle;
-      // Convert deg to radians for rotation
-      interaction.current.targetRotation = interaction.current.initialRotation - (angleDiff * Math.PI / 180);
+      interaction.current.targetScale = Math.max(0.4, Math.min(interaction.current.initialScale * zoom, 2.5));
     }
   };
 
@@ -265,12 +291,15 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     interaction.current.isDragging = false;
     interaction.current.initialDistance = null;
     interaction.current.lastTouch = null;
+    
+    // Auto-return rotation to standard tabletop view slowly
+    interaction.current.targetRotationX = -Math.PI / 2.5;
+    interaction.current.targetRotationY = 0;
   };
 
   return (
     <>
       <video ref={videoRef} autoPlay playsInline muted className="ar-camera-feed" />
-      {/* Three.js Canvas Container */}
       <div 
         ref={containerRef} 
         className="ar-scene" 
@@ -281,7 +310,7 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       />
       <div className="ar-ui-overlay">
         <button className="ar-close-btn" onClick={onClose}><X size={24} /></button>
-        <div className="ar-instructions">Pinch to scale • Drag to move • Twist to rotate</div>
+        <div className="ar-instructions">Drag to inspect • Pinch to scale</div>
         <div className="ar-watermark">Powered by Rastro-menu 3D Engine</div>
       </div>
     </>
