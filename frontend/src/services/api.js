@@ -1,7 +1,23 @@
 import axios from 'axios';
 
+// Intelligently parse the base URL and ensure it ends with /api for endpoints
+const rawBaseUrl = import.meta.env.VITE_API_BASE_URL;
+let apiBaseUrl = 'http://localhost:5000/api';
+let rootBaseUrl = 'http://localhost:5000';
+
+if (rawBaseUrl) {
+  const cleanUrl = rawBaseUrl.replace(/\/$/, ''); // Remove trailing slash if present
+  if (cleanUrl.endsWith('/api')) {
+    apiBaseUrl = cleanUrl;
+    rootBaseUrl = cleanUrl.slice(0, -4);
+  } else {
+    apiBaseUrl = `${cleanUrl}/api`;
+    rootBaseUrl = cleanUrl;
+  }
+}
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api',
+  baseURL: apiBaseUrl,
 });
 
 // Add a request interceptor
@@ -21,8 +37,7 @@ api.interceptors.request.use(
 export const getImageUrl = (path) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
-  const baseUrl = import.meta.env.VITE_API_BASE_URL ? import.meta.env.VITE_API_BASE_URL.replace('/api', '') : 'http://localhost:5000';
-  return `${baseUrl}${path.startsWith('/') ? path : '/' + path}`;
+  return `${rootBaseUrl}${path.startsWith('/') ? path : '/' + path}`;
 };
 
 export default api;
