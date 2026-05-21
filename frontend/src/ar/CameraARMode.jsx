@@ -116,21 +116,37 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       if (spriteConfig) {
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
+        texture.minFilter = THREE.NearestFilter; // Fix 1: Stop texture bleeding
+        texture.magFilter = THREE.NearestFilter;
         texture.repeat.set(1 / spriteConfig.columns, 1 / spriteConfig.rows);
         
-        const frameAspect = (texture.image.width / spriteConfig.columns) / (texture.image.height / spriteConfig.rows);
-        geometry = new THREE.PlaneGeometry(3, 3);
-        geometry.scale(1, 1 / frameAspect, 1);
+        // Fix 2: Correct dynamic aspect ratio
+        const frameWidth = texture.image.width / spriteConfig.columns;
+        const frameHeight = texture.image.height / spriteConfig.rows;
+        const frameAspect = frameWidth / frameHeight;
+        geometry = new THREE.PlaneGeometry(3 * frameAspect, 3);
         
-        const material = new THREE.MeshLambertMaterial({ 
+        // Fix 6: Frame interpolation setup (2 overlapping planes)
+        const materialA = new THREE.MeshLambertMaterial({ 
           map: texture, 
           transparent: true,
           alphaTest: 0.1,
           side: THREE.DoubleSide
         });
+        const materialB = new THREE.MeshLambertMaterial({ 
+          map: texture.clone(), 
+          transparent: true,
+          alphaTest: 0.1,
+          side: THREE.DoubleSide
+        });
+        materialB.map.needsUpdate = true;
         
-        const mesh = new THREE.Mesh(geometry, material);
-        dishGroup.add(mesh);
+        const meshA = new THREE.Mesh(geometry, materialA);
+        const meshB = new THREE.Mesh(geometry, materialB);
+        meshB.position.z = 0.001; // Avoid z-fighting
+        
+        dishGroup.add(meshA);
+        dishGroup.add(meshB);
       } else {
         const aspect = texture.image.width / texture.image.height;
         geometry = new THREE.PlaneGeometry(3, 3);
@@ -217,21 +233,38 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       // Apply Rotations
       dishGroup.rotation.x = interaction.current.rotationX;
       
-      if (spriteConfig && dishGroup.children[0]?.material?.map) {
-        // Frame Swapping Logic
-        const texture = dishGroup.children[0].material.map;
-        const maxRot = Math.PI / 9; // 20 degrees bounds
-        // Map current rotationY to [0, 1] across the available frames
-        const normalizedRot = Math.max(0, Math.min(1, (interaction.current.rotationY + maxRot) / (maxRot * 2)));
+      if (spriteConfig && dishGroup.children.length >= 2) {
+        const meshA = dishGroup.children[0];
+        const meshB = dishGroup.children[1];
         
-        const frameIndex = Math.floor(normalizedRot * (spriteConfig.columns - 1));
-        const col = frameIndex % spriteConfig.columns;
-        const row = Math.floor(frameIndex / spriteConfig.columns);
+        if (meshA.material.map && meshB.material.map) {
+          const maxRot = Math.PI / 9; // 20 degrees bounds
+          const normalizedRot = Math.max(0, Math.min(1, (interaction.current.rotationY + maxRot) / (maxRot * 2)));
+          
+          const maxFrameIndex = spriteConfig.columns * spriteConfig.rows - 1;
+          const floatFrame = normalizedRot * maxFrameIndex;
+          
+          const frameIndexA = Math.floor(floatFrame);
+          const frameIndexB = Math.min(maxFrameIndex, frameIndexA + 1);
+          const blendFactor = floatFrame - frameIndexA;
+          
+          // Fix 6: Blend opacities
+          meshA.material.opacity = 1 - blendFactor;
+          meshB.material.opacity = blendFactor;
+          
+          // Offset A
+          const colA = frameIndexA % spriteConfig.columns;
+          const rowA = Math.floor(frameIndexA / spriteConfig.columns);
+          meshA.material.map.offset.x = colA / spriteConfig.columns;
+          meshA.material.map.offset.y = 1 - ((rowA + 1) / spriteConfig.rows);
+          
+          // Offset B
+          const colB = frameIndexB % spriteConfig.columns;
+          const rowB = Math.floor(frameIndexB / spriteConfig.columns);
+          meshB.material.map.offset.x = colB / spriteConfig.columns;
+          meshB.material.map.offset.y = 1 - ((rowB + 1) / spriteConfig.rows);
+        }
         
-        texture.offset.x = col / spriteConfig.columns;
-        texture.offset.y = 1 - ((row + 1) / spriteConfig.rows);
-        
-        // Do not physically rotate the plane on Y when in sprite mode
         dishGroup.rotation.y = 0;
       } else {
         dishGroup.rotation.y = interaction.current.rotationY;
@@ -247,9 +280,9 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
         shadowMeshRef.material.opacity = 0.8 - hoverOffset * 0.3;
       }
 
-      // Step 5: Hybrid Gyro Parallax (Move Camera)
-      gyro.current.x += (gyro.current.targetX - gyro.current.x) * 0.05;
-      gyro.current.y += (gyro.current.targetY - gyro.current.y) * 0.05;
+      // Step 5 & Fix 3/4: Hybrid Gyro Parallax with extreme damping
+      gyro.current.x += (gyro.current.targetX - gyro.current.x) * 0.02;
+      gyro.current.y += (gyro.current.targetY - gyro.current.y) * 0.02;
 
       camera.position.x = gyro.current.x;
       camera.position.y = gyro.current.y;
@@ -265,11 +298,15 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       if (e.gamma === null || e.beta === null) return;
       
       const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
-      const moveX = clamp(e.gamma / 30, -1.2, 1.2);
-      const moveY = clamp((e.beta - 45) / 30, -1.2, 1.2);
-
-      gyro.current.targetX = moveX;
-      gyro.current.targetY = -moveY; 
+      let moveX = e.gamma / 30;
+      let moveY = (e.beta - 45) / 30;
+      
+      // Fix 3: Deadzones to stabilize anchor
+      if (Math.abs(moveX) < 0.05) moveX = 0;
+      if (Math.abs(moveY) < 0.05) moveY = 0;
+      
+      gyro.current.targetX = clamp(moveX, -1.0, 1.0);
+      gyro.current.targetY = clamp(-moveY, -1.0, 1.0);
     };
     window.addEventListener('deviceorientation', handleOrientation);
 
