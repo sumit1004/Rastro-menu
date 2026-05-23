@@ -25,7 +25,11 @@ const ManageDishes = () => {
     preparation_time: '', is_available: true, is_featured: false,
     ar_enabled: false,
     ar_asset_type: 'static',
-    taste_tags: []
+    taste_tags: [],
+    has_full_plate: true,
+    has_half_plate: false,
+    full_plate_price: '',
+    half_plate_price: ''
   });
   const [imageFile, setImageFile] = useState(null);
   const [arImageFile, setArImageFile] = useState(null);
@@ -102,7 +106,11 @@ const ManageDishes = () => {
         is_available: dish.is_available, is_featured: dish.is_featured,
         ar_enabled: !!dish.ar_enabled,
         ar_asset_type: dish.ar_asset_type || 'static',
-        taste_tags: typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : (dish.taste_tags || [])
+        taste_tags: typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : (dish.taste_tags || []),
+        has_full_plate: dish.has_full_plate !== undefined ? dish.has_full_plate : true,
+        has_half_plate: !!dish.has_half_plate,
+        full_plate_price: dish.full_plate_price || dish.price,
+        half_plate_price: dish.half_plate_price || ''
       });
     } else {
       setEditingId(null);
@@ -112,7 +120,11 @@ const ManageDishes = () => {
         preparation_time: '', is_available: true, is_featured: false,
         ar_enabled: false,
         ar_asset_type: 'static',
-        taste_tags: []
+        taste_tags: [],
+        has_full_plate: true,
+        has_half_plate: false,
+        full_plate_price: '',
+        half_plate_price: ''
       });
     }
     setImageFile(null);
@@ -249,7 +261,35 @@ const ManageDishes = () => {
           
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1rem' }}>
             <Input label="Category*" id="category" value={formData.category} onChange={handleChange} required />
-            <Input label="Price (₹)*" type="number" step="0.01" id="price" value={formData.price} onChange={handleChange} required />
+            <Input label="Base Price (₹)*" type="number" step="0.01" id="price" value={formData.price} onChange={handleChange} required />
+          </div>
+          
+          <div className="form-group" style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
+            <h4 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Portion & Pricing Configuration</h4>
+            
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', minWidth: '120px' }}>
+                <input type="checkbox" id="has_full_plate" checked={formData.has_full_plate} onChange={handleChange} />
+                Full Plate
+              </label>
+              {formData.has_full_plate && (
+                <div style={{ flex: 1, minWidth: '150px' }}>
+                  <Input label="Full Plate Price (₹)" type="number" step="0.01" id="full_plate_price" value={formData.full_plate_price} onChange={handleChange} />
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', minWidth: '120px' }}>
+                <input type="checkbox" id="has_half_plate" checked={formData.has_half_plate} onChange={handleChange} />
+                Half Plate
+              </label>
+              {formData.has_half_plate && (
+                <div style={{ flex: 1, minWidth: '150px' }}>
+                  <Input label="Half Plate Price (₹)" type="number" step="0.01" id="half_plate_price" value={formData.half_plate_price} onChange={handleChange} />
+                </div>
+              )}
+            </div>
           </div>
           
           <div className="form-group">

@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Utensils, Star, Eye, Activity, Sparkles, MessageSquare, Clock } from 'lucide-react';
+import { Utensils, Star, Eye, Activity, Sparkles, MessageSquare, Clock, Bell, CheckCircle, XCircle } from 'lucide-react';
+import io from 'socket.io-client';
 import api from '../services/api';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import PlanBanner from '../components/PlanBanner';
-import FeatureGrid from '../components/FeatureGrid';
+import Button from '../components/Button';
 import { useSubscription } from '../context/SubscriptionContext';
-
 
 const StarRating = ({ rating }) => (
   <span style={{ color: '#f59e0b', fontSize: '0.8rem', letterSpacing: '-1px' }}>
@@ -28,26 +28,33 @@ const formatTimeAgo = (dateStr) => {
 
 const DashboardOverview = () => {
   const { subscription } = useSubscription();
+  const [restaurantId, setRestaurantId] = useState(null);
   const [stats, setStats] = useState(null);
   const [activities, setActivities] = useState([]);
+  const [liveOrders, setLiveOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
         const profileRes = await api.get('/restaurants/my-profile');
-        const restaurantId = profileRes.data.id;
+        const restId = profileRes.data.id;
+        setRestaurantId(restId);
 
-        const [dishesRes, reviewsRes, sessionRes] = await Promise.all([
-          api.get(`/dishes/restaurant/${restaurantId}`),
+        const [dishesRes, reviewsRes, sessionRes, ordersRes] = await Promise.all([
+          api.get(`/dishes/restaurant/${restId}`),
           api.get('/reviews/restaurant').catch(() => ({ data: [] })),
-          api.get(`/analytics/dashboard/${restaurantId}?timeFilter=all`).catch(() => ({ data: { overview: { totalViews: 0 } } })),
+          api.get(`/analytics/dashboard/${restId}?timeFilter=all`).catch(() => ({ data: { overview: { totalViews: 0 } } })),
+          api.get(`/orders/restaurant/${restId}`).catch(() => ({ data: [] }))
         ]);
 
         const dishes = dishesRes.data;
         const reviews = reviewsRes.data;
         const totalViews = sessionRes.data?.overview?.totalViews ?? 0;
+        
+        // Filter out completed and cancelled orders for the live view
+        const activeOrders = ordersRes.data.filter(o => ['pending', 'accepted', 'ready'].includes(o.order_status));
+        setLiveOrders(activeOrders);
 
         setStats({
           dishes: dishes.length,
@@ -56,7 +63,6 @@ const DashboardOverview = () => {
           ai: dishes.filter(d => d.ai_description || d.ai_category || d.ai_enhanced_image).length,
         });
 
-        // Build activity feed from reviews
         const reviewActivities = reviews.map(r => ({
           id: `review-${r.id}`,
           type: 'review',
@@ -72,7 +78,6 @@ const DashboardOverview = () => {
           time: r.created_at,
         }));
 
-        // Sort all activities newest first
         reviewActivities.sort((a, b) => new Date(b.time) - new Date(a.time));
         setActivities(reviewActivities);
       } catch (error) {
@@ -86,11 +91,65 @@ const DashboardOverview = () => {
     fetchStats();
   }, []);
 
+  // Set up Socket.IO for real-time orders
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    // Use environment URL or fallback to localhost
+    const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+    const socketUrl = rawBaseUrl.replace(/\/api\/?$/, '');
+    const socket = io(socketUrl);
+
+    socket.emit('join_restaurant', restaurantId);
+
+    socket.on('new_order', (order) => {
+      setLiveOrders(prev => [order, ...prev]);
+    });
+
+    socket.on('order_status_update', ({ order_id, status }) => {
+      setLiveOrders(prev => {
+        // If order is completed, cancelled or delivered, remove it from live view
+        if (['completed', 'cancelled', 'delivered'].includes(status)) {
+          return prev.filter(o => o.id !== order_id);
+        }
+        // Otherwise, update its status
+        return prev.map(o => o.id === order_id ? { ...o, order_status: status } : o);
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [restaurantId]);
+
+  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    try {
+      await api.put(`/orders/${orderId}/status`, { status: newStatus });
+      // Optimistic update
+      setLiveOrders(prev => {
+        if (['completed', 'cancelled', 'delivered'].includes(newStatus)) {
+          return prev.filter(o => o.id !== orderId);
+        }
+        return prev.map(o => o.id === orderId ? { ...o, order_status: newStatus } : o);
+      });
+    } catch (err) {
+      alert("Failed to update status");
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'pending': return { bg: '#fee2e2', text: '#991b1b' };
+      case 'accepted': return { bg: '#fef3c7', text: '#92400e' };
+      case 'ready': return { bg: '#dcfce7', text: '#166534' };
+      default: return { bg: '#f1f5f9', text: '#475569' };
+    }
+  };
+
   if (loading) return <Loader />;
 
   return (
     <div>
-      {/* Subscription Plan Banner */}
       <PlanBanner />
 
       <div className="dashboard-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -107,8 +166,6 @@ const DashboardOverview = () => {
         </div>
       </div>
 
-
-      {/* Stats Grid */}
       <div className="stats-grid">
         <Card className="stat-card">
           <div className="stat-icon"><Utensils size={24} /></div>
@@ -147,19 +204,76 @@ const DashboardOverview = () => {
         </Card>
       </div>
 
-      {/* Feature Access Section */}
-      <Card style={{ marginBottom: '1.5rem' }}>
-        <h3 style={{ marginBottom: '0.25rem' }}>Your Feature Access</h3>
-        <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '0.5rem' }}>
-          Features available on your current plan.
-        </p>
-        <FeatureGrid compact />
+      {/* LIVE ORDERS PANEL */}
+      <Card style={{ marginBottom: '1.5rem', border: '2px solid var(--primary-color)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary-color)' }}>
+            <Bell size={20} className="animate-pulse" /> Live Orders 
+          </h3>
+          <span style={{ fontSize: '0.85rem', fontWeight: 'bold', background: 'var(--primary-color)', color: 'white', padding: '0.25rem 0.75rem', borderRadius: '1rem' }}>
+            {liveOrders.length} Active
+          </span>
+        </div>
+
+        {liveOrders.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '2rem 0', color: '#94a3b8' }}>
+            <Utensils size={32} style={{ margin: '0 auto 0.75rem', display: 'block', opacity: 0.4 }} />
+            <p style={{ margin: 0 }}>No active orders right now.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+            {liveOrders.map(order => {
+               const statusStyle = getStatusColor(order.order_status);
+               return (
+                 <div key={order.id} style={{ border: '1px solid #e2e8f0', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#f8fafc' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                     <div>
+                       <h4 style={{ margin: '0 0 0.25rem 0' }}>Table {order.table_number}</h4>
+                       <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.2rem' }}>📞 {order.customer_mobile}</div>
+                       <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{formatTimeAgo(order.created_at)}</span>
+                     </div>
+                     <span style={{ padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.75rem', fontWeight: 'bold', backgroundColor: statusStyle.bg, color: statusStyle.text, textTransform: 'uppercase' }}>
+                       {order.order_status}
+                     </span>
+                   </div>
+                   
+                   <div style={{ marginBottom: '1rem', borderTop: '1px dashed #cbd5e1', paddingTop: '0.5rem' }}>
+                     {order.items && order.items.map((item, idx) => (
+                       <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                         <span>{item.quantity}x {item.dish_name} <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>({item.plate_type})</span></span>
+                         <span style={{ fontWeight: '500' }}>₹{item.item_price * item.quantity}</span>
+                       </div>
+                     ))}
+                   </div>
+                   
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold', marginBottom: '1rem' }}>
+                     <span>Total</span>
+                     <span>₹{Number(order.total_amount) ? order.total_amount : order.items?.reduce((s, item) => s + item.item_price * item.quantity, 0)}</span>
+                   </div>
+                   
+                   <div style={{ display: 'flex', gap: '0.5rem' }}>
+                     {order.order_status === 'pending' && (
+                       <Button style={{ flex: 1, padding: '0.5rem' }} onClick={() => handleUpdateOrderStatus(order.id, 'accepted')}>Accept</Button>
+                     )}
+                     {order.order_status === 'accepted' && (
+                       <Button style={{ flex: 1, padding: '0.5rem', backgroundColor: '#eab308' }} onClick={() => handleUpdateOrderStatus(order.id, 'ready')}>Mark Ready</Button>
+                     )}
+                     <Button style={{ flex: 1, padding: '0.5rem', backgroundColor: '#22c55e' }} onClick={() => handleUpdateOrderStatus(order.id, 'delivered')}>Delivered</Button>
+                     <Button variant="outline" style={{ padding: '0.5rem', borderColor: '#ef4444', color: '#ef4444' }} onClick={() => handleUpdateOrderStatus(order.id, 'cancelled')}>
+                       <XCircle size={18} />
+                     </Button>
+                   </div>
+                 </div>
+               );
+            })}
+          </div>
+        )}
       </Card>
 
       {/* Recent Activity Feed */}
       <Card>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0 }}>Recent Activity</h3>
+          <h3 style={{ margin: 0 }}>Recent Reviews Activity</h3>
           {activities.length > 0 && (
             <span style={{ fontSize: '0.78rem', color: '#94a3b8', background: '#f1f5f9', padding: '2px 10px', borderRadius: '99px' }}>
               {activities.length} total
@@ -170,7 +284,7 @@ const DashboardOverview = () => {
         {activities.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '2rem 0', color: '#94a3b8' }}>
             <MessageSquare size={32} style={{ margin: '0 auto 0.75rem', display: 'block', opacity: 0.4 }} />
-            <p style={{ margin: 0 }}>No activity yet. Share your menu to get reviews!</p>
+            <p style={{ margin: 0 }}>No review activity yet. Share your menu to get reviews!</p>
           </div>
         ) : (
           <div

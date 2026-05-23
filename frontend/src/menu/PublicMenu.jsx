@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Star, Clock, Flame, Info, Search, Sparkles, Camera } from 'lucide-react';
+import { Star, Clock, Flame, Info, Search, Sparkles, Camera, ShoppingBag, Plus, Minus, X } from 'lucide-react';
 import api, { getImageUrl } from '../services/api';
 import analyticsService from '../services/analyticsService';
 import ARViewer from '../ar/ARViewer';
@@ -43,16 +43,41 @@ const PublicMenu = () => {
 
   const [isARViewerOpen, setIsARViewerOpen] = useState(false);
 
+  // --- ORDERING STATE ---
+  const [tableBasket, setTableBasket] = useState([]);
+  const [isBasketOpen, setIsBasketOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  
+  // Quick Order State (when clicking 'Order Now' on a single dish)
+  const [quickOrderItems, setQuickOrderItems] = useState(null);
+
+  // Dish Modal Ordering Options
+  const [orderQuantity, setOrderQuantity] = useState(1);
+  const [orderPlateType, setOrderPlateType] = useState('full');
+  const [orderSpecialInstructions, setOrderSpecialInstructions] = useState('');
+
+  // Checkout State
+  const [checkoutTableNumber, setCheckoutTableNumber] = useState('');
+  const [checkoutMobileNumber, setCheckoutMobileNumber] = useState('');
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
+  // Reset ordering options when modal opens
+  useEffect(() => {
+    if (selectedDish) {
+      setOrderQuantity(1);
+      setOrderPlateType(selectedDish.has_full_plate ? 'full' : 'half');
+      setOrderSpecialInstructions('');
+    }
+  }, [selectedDish]);
+
   // Analytics: Track modal duration
   const currentDishRef = useRef(null);
   const modalOpenTimeRef = useRef(null);
 
   useEffect(() => {
     if (selectedDish !== currentDishRef.current) {
-      // If a modal was open, calculate duration
       if (currentDishRef.current && modalOpenTimeRef.current) {
         const durationSecs = Math.floor((Date.now() - modalOpenTimeRef.current) / 1000);
-        // Track only if engagement > 2s
         if (durationSecs >= 2 && restaurant) {
           analyticsService.trackDishView(currentDishRef.current.id, restaurant.id, durationSecs);
         }
@@ -61,7 +86,6 @@ const PublicMenu = () => {
       modalOpenTimeRef.current = selectedDish ? Date.now() : null;
     }
 
-    // Preload AR asset if available
     if (selectedDish && selectedDish.ar_enabled && selectedDish.ar_image_url) {
       const img = new Image();
       img.src = getImageUrl(selectedDish.ar_image_url);
@@ -81,10 +105,8 @@ const PublicMenu = () => {
         const uniqueCategories = ['All', ...new Set(availableDishes.map(d => d.ai_category || d.category))];
         setCategories(uniqueCategories);
 
-        // Analytics: Track Session
         analyticsService.trackSession(restRes.data.id);
         
-        // Analytics: Fetch Trending Dishes
         try {
           const trending = await analyticsService.getTrendingDishes(restRes.data.id);
           setTrendingDishes(trending);
@@ -104,8 +126,6 @@ const PublicMenu = () => {
     const fetchReviews = async () => {
       if (selectedDish) {
         setLoadingReviews(true);
-
-        
         try {
           const res = await api.get(`/reviews/dish/${selectedDish.id}`);
           setDishReviews(res.data);
@@ -171,13 +191,8 @@ const PublicMenu = () => {
 
       const query = debouncedSearch.toLowerCase();
       const searchableText = [
-        dish.name,
-        dish.short_description,
-        dish.description,
-        dish.ai_description,
-        dish.ingredients,
-        dish.ai_category,
-        dish.category
+        dish.name, dish.short_description, dish.description, dish.ai_description,
+        dish.ingredients, dish.ai_category, dish.category
       ].join(' ').toLowerCase();
 
       let tagsStr = '';
@@ -192,21 +207,87 @@ const PublicMenu = () => {
     });
   }, [dishes, activeCategory, debouncedSearch]);
 
-  // Analytics: Track Search
   useEffect(() => {
     if (debouncedSearch && restaurant) {
       analyticsService.trackSearch(restaurant.id, debouncedSearch, filteredDishes.length);
     }
-  }, [debouncedSearch]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]); 
 
   const recommendedDishes = useMemo(() => {
     if (debouncedSearch) return [];
-    // Rule-based Recommendation: High rating + many reviews, or featured
     return [...dishes]
       .filter(d => (parseFloat(d.average_rating) >= 4.5 && d.total_reviews >= 2) || d.is_featured)
       .sort((a, b) => b.total_reviews - a.total_reviews)
       .slice(0, 6);
   }, [dishes, debouncedSearch]);
+
+  // --- ORDERING LOGIC ---
+  const handleAddToTable = () => {
+    const itemPrice = orderPlateType === 'full' ? selectedDish.full_plate_price || selectedDish.price : selectedDish.half_plate_price;
+    const newItem = {
+      dish_id: selectedDish.id,
+      dish_name: selectedDish.name,
+      quantity: orderQuantity,
+      plate_type: orderPlateType,
+      item_price: itemPrice,
+      item_note: orderSpecialInstructions,
+      temp_id: Date.now() // for unique key in basket
+    };
+    setTableBasket([...tableBasket, newItem]);
+    setSelectedDish(null);
+    alert('Added to Table Order');
+  };
+
+  const handleOrderNow = () => {
+    const itemPrice = orderPlateType === 'full' ? selectedDish.full_plate_price || selectedDish.price : selectedDish.half_plate_price;
+    const newItem = {
+      dish_id: selectedDish.id,
+      dish_name: selectedDish.name,
+      quantity: orderQuantity,
+      plate_type: orderPlateType,
+      item_price: itemPrice,
+      item_note: orderSpecialInstructions
+    };
+    setQuickOrderItems([newItem]);
+    setSelectedDish(null);
+    setIsCheckoutOpen(true);
+  };
+
+  const handleRemoveFromBasket = (tempId) => {
+    setTableBasket(tableBasket.filter(item => item.temp_id !== tempId));
+  };
+
+  const handlePlaceOrder = async (e) => {
+    e.preventDefault();
+    setIsPlacingOrder(true);
+    
+    const itemsToOrder = quickOrderItems || tableBasket;
+
+    try {
+      await api.post('/orders', {
+        restaurant_id: restaurant.id,
+        table_number: checkoutTableNumber,
+        customer_mobile: checkoutMobileNumber,
+        items: itemsToOrder
+      });
+      
+      alert('Order Placed Successfully!');
+      setIsCheckoutOpen(false);
+      setCheckoutTableNumber('');
+      setCheckoutMobileNumber('');
+      
+      if (!quickOrderItems) {
+        setTableBasket([]);
+        setIsBasketOpen(false);
+      }
+      setQuickOrderItems(null);
+    } catch (err) {
+      alert('Failed to place order. Please try again.');
+    } finally {
+      setIsPlacingOrder(false);
+    }
+  };
+
 
   if (loading) return <div style={{ height: '100vh', display: 'flex', alignItems: 'center' }}><Loader /></div>;
   if (error) return <div className="menu-error"><h2>{error}</h2></div>;
@@ -214,11 +295,8 @@ const PublicMenu = () => {
   const renderTasteTags = (dish) => {
     if (!dish.taste_tags) return null;
     let tags = [];
-    try {
-      tags = typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : dish.taste_tags;
-    } catch (e) { return null; }
+    try { tags = typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : dish.taste_tags; } catch (e) { return null; }
     if (!Array.isArray(tags) || tags.length === 0) return null;
-    
     return (
       <div className="dish-taste-tags scroll-hide">
         {tags.map((tag, i) => <span key={i} className="taste-tag">{tag}</span>)}
@@ -238,8 +316,10 @@ const PublicMenu = () => {
     return null;
   };
 
+  const basketTotal = tableBasket.reduce((sum, item) => sum + (item.item_price * item.quantity), 0);
+
   return (
-    <div className="public-menu-container">
+    <div className="public-menu-container" style={{ paddingBottom: '80px' }}>
       {/* Banner */}
       <div className="menu-banner" style={{ backgroundImage: `url(${restaurant.banner ? getImageUrl(restaurant.banner) : 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1934&auto=format&fit=crop'})` }}>
         <div className="menu-banner-overlay"></div>
@@ -293,7 +373,7 @@ const PublicMenu = () => {
 
       <div className="container menu-content-section">
         
-        {/* Trending Section (Analytics Based) */}
+        {/* Trending Section */}
         {trendingDishes.length > 0 && activeCategory === 'All' && !searchQuery && (
           <div className="recommendation-section">
             <div className="section-header-ai">
@@ -326,7 +406,7 @@ const PublicMenu = () => {
           </div>
         )}
 
-        {/* Recommendations Section */}
+        {/* Most Loved Section */}
         {recommendedDishes.length > 0 && activeCategory === 'All' && !searchQuery && (
           <div className="recommendation-section">
             <div className="section-header-ai">
@@ -378,20 +458,14 @@ const PublicMenu = () => {
                       <h3>{dish.name}</h3>
                       <span className="dish-price">₹{dish.price}</span>
                     </div>
-                    {/* Prefer AI Description if it exists */}
                     <p className="dish-list-desc">{dish.ai_description || dish.description || dish.short_description}</p>
-                    
                     {renderTasteTags(dish)}
-
                     <div className="dish-list-footer mt-2">
                       {dish.average_rating > 0 && (
                         <div className="dish-rating">
                           <Star size={14} fill="#f59e0b" color="#f59e0b" />
                           <span>{parseFloat(dish.average_rating).toFixed(1)} ({dish.total_reviews})</span>
                         </div>
-                      )}
-                      {dish.calories > 0 && (
-                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{dish.calories} cal</span>
                       )}
                     </div>
                   </div>
@@ -407,6 +481,97 @@ const PublicMenu = () => {
         </div>
       </div>
 
+      {/* Floating Basket Button */}
+      {tableBasket.length > 0 && (
+        <div 
+          onClick={() => setIsBasketOpen(true)}
+          style={{
+            position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 100,
+            background: 'var(--primary-color)', color: 'white',
+            padding: '1rem 1.5rem', borderRadius: '2rem',
+            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
+            display: 'flex', alignItems: 'center', gap: '0.75rem',
+            cursor: 'pointer', fontWeight: 'bold'
+          }}
+        >
+          <ShoppingBag size={20} />
+          <span>View Table Order ({tableBasket.length})</span>
+        </div>
+      )}
+
+      {/* Table Basket Drawer/Modal */}
+      <Modal isOpen={isBasketOpen} onClose={() => setIsBasketOpen(false)} title="Your Table Order">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {tableBasket.length === 0 ? (
+            <p className="text-center text-muted py-4">Your table order is empty.</p>
+          ) : (
+            <>
+              {tableBasket.map(item => (
+                <div key={item.temp_id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 0.25rem 0' }}>{item.quantity}x {item.dish_name}</h4>
+                    <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                      {item.plate_type === 'half' ? 'Half Plate' : 'Full Plate'} • ₹{item.item_price}
+                    </p>
+                    {item.item_note && <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', fontStyle: 'italic', color: '#64748b' }}>Note: {item.item_note}</p>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <span style={{ fontWeight: 'bold' }}>₹{item.item_price * item.quantity}</span>
+                    <button onClick={() => handleRemoveFromBasket(item.temp_id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.5rem' }}>
+                      <X size={18} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}>
+                <span style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Total</span>
+                <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>₹{basketTotal}</span>
+              </div>
+              
+              <Button onClick={() => { setIsBasketOpen(false); setQuickOrderItems(null); setIsCheckoutOpen(true); }} style={{ width: '100%', marginTop: '1rem', padding: '1rem' }}>
+                Place Full Order
+              </Button>
+            </>
+          )}
+        </div>
+      </Modal>
+
+      {/* Checkout Flow Modal */}
+      <Modal isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} title="Complete Your Order">
+        <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>Please enter your table details to confirm the order.</p>
+          
+          <div className="form-group">
+            <label className="form-label">Table Number*</label>
+            <input 
+              type="text" 
+              className="form-control" 
+              placeholder="e.g. 5" 
+              value={checkoutTableNumber} 
+              onChange={e => setCheckoutTableNumber(e.target.value)} 
+              required 
+            />
+          </div>
+          
+          <div className="form-group">
+            <label className="form-label">Mobile Number*</label>
+            <input 
+              type="tel" 
+              className="form-control" 
+              placeholder="Enter mobile number" 
+              value={checkoutMobileNumber} 
+              onChange={e => setCheckoutMobileNumber(e.target.value)} 
+              required 
+            />
+          </div>
+          
+          <Button type="submit" loading={isPlacingOrder} style={{ width: '100%', marginTop: '1rem' }}>
+            Confirm & Place Order
+          </Button>
+        </form>
+      </Modal>
+
       {/* Dish Details Modal */}
       <Modal isOpen={!!selectedDish} onClose={() => setSelectedDish(null)} title={selectedDish?.name}>
         {selectedDish && (
@@ -419,7 +584,9 @@ const PublicMenu = () => {
             
             <div className="dish-modal-header mt-4">
               <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{selectedDish.name}</h2>
-              <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>₹{selectedDish.price}</span>
+              <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
+                 ₹{orderPlateType === 'full' ? (selectedDish.full_plate_price || selectedDish.price) : selectedDish.half_plate_price}
+              </span>
             </div>
             
             {selectedDish.average_rating > 0 && (
@@ -437,12 +604,81 @@ const PublicMenu = () => {
             <p style={{ marginTop: '1rem', color: 'var(--text-main)', lineHeight: '1.6', fontSize: '1.05rem' }}>
               {selectedDish.ai_description || selectedDish.description || selectedDish.short_description}
             </p>
+            
+            {/* --- ORDERING CONFIGURATION --- */}
+            <div style={{ marginTop: '1.5rem', padding: '1.5rem', backgroundColor: '#f8fafc', borderRadius: '0.75rem', border: '1px solid #e2e8f0' }}>
+               
+               {/* Plate Type Selector */}
+               {(selectedDish.has_full_plate && selectedDish.has_half_plate) && (
+                 <div style={{ marginBottom: '1.5rem' }}>
+                   <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Plate Type</label>
+                   <div style={{ display: 'flex', gap: '0.5rem' }}>
+                     <button 
+                       type="button"
+                       onClick={() => setOrderPlateType('half')}
+                       style={{ flex: 1, padding: '0.75rem', borderRadius: '0.5rem', border: `2px solid ${orderPlateType === 'half' ? 'var(--primary-color)' : '#cbd5e1'}`, backgroundColor: orderPlateType === 'half' ? '#eff6ff' : 'white', fontWeight: orderPlateType === 'half' ? 'bold' : 'normal' }}
+                     >
+                       Half (₹{selectedDish.half_plate_price})
+                     </button>
+                     <button 
+                       type="button"
+                       onClick={() => setOrderPlateType('full')}
+                       style={{ flex: 1, padding: '0.75rem', borderRadius: '0.5rem', border: `2px solid ${orderPlateType === 'full' ? 'var(--primary-color)' : '#cbd5e1'}`, backgroundColor: orderPlateType === 'full' ? '#eff6ff' : 'white', fontWeight: orderPlateType === 'full' ? 'bold' : 'normal' }}
+                     >
+                       Full (₹{selectedDish.full_plate_price || selectedDish.price})
+                     </button>
+                   </div>
+                 </div>
+               )}
+
+               {/* Quantity Selector */}
+               <div style={{ marginBottom: '1.5rem' }}>
+                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Quantity</label>
+                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                   <button 
+                     type="button"
+                     onClick={() => setOrderQuantity(Math.max(1, orderQuantity - 1))}
+                     style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', cursor: 'pointer' }}
+                   >
+                     <Minus size={16} />
+                   </button>
+                   <span style={{ fontSize: '1.25rem', fontWeight: 'bold', width: '30px', textAlign: 'center' }}>{orderQuantity}</span>
+                   <button 
+                     type="button"
+                     onClick={() => setOrderQuantity(orderQuantity + 1)}
+                     style={{ width: '40px', height: '40px', borderRadius: '50%', border: '1px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', cursor: 'pointer' }}
+                   >
+                     <Plus size={16} />
+                   </button>
+                 </div>
+               </div>
+
+               {/* Special Instructions */}
+               <div>
+                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '0.5rem' }}>Special Instructions</label>
+                 <textarea 
+                   placeholder="e.g. Less spicy, no onion, extra butter"
+                   value={orderSpecialInstructions}
+                   onChange={(e) => setOrderSpecialInstructions(e.target.value)}
+                   style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', resize: 'vertical', minHeight: '60px' }}
+                 ></textarea>
+               </div>
+               
+               {/* Order Action Buttons */}
+               <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                 <Button onClick={handleAddToTable} variant="outline" style={{ flex: 1 }}>
+                   Add To Table
+                 </Button>
+                 <Button onClick={handleOrderNow} style={{ flex: 1 }}>
+                   Order Now
+                 </Button>
+               </div>
+            </div>
 
             {selectedDish.ar_enabled && (selectedDish.ar_image_url || selectedDish.ar_video_url) ? (
               <Button 
                 onClick={() => {
                   setIsARViewerOpen(true);
-                  // Basic analytics for AR
                   if (restaurant) {
                     analyticsService.trackEvent?.('ar_open', { dishId: selectedDish.id, restaurantId: restaurant.id });
                   }
@@ -486,7 +722,6 @@ const PublicMenu = () => {
               </div>
             )}
 
-            {/* Display Customer Reviews */}
             <div style={{ marginTop: '2rem' }}>
               <h4 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Customer Reviews</h4>
               {loadingReviews ? (
@@ -512,7 +747,6 @@ const PublicMenu = () => {
               )}
             </div>
 
-            {/* Submit Review Section */}
             <div style={{ marginTop: '2rem', padding: '1.5rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem' }}>
               <h4 style={{ marginBottom: '1rem' }}>Leave a Review</h4>
               <form onSubmit={handleReviewSubmit}>

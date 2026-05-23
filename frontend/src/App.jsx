@@ -20,6 +20,7 @@ import Settings from './dashboard/Settings';
 import PaymentHistory from './dashboard/PaymentHistory';
 import AdminDashboard from './admin/AdminDashboard';
 import Legal from './pages/Legal';
+import Orders from './dashboard/Orders';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useContext(AuthContext);
@@ -59,6 +60,7 @@ const AppRoutes = () => {
         <Route path="qr-menu" element={<QRMenu />} />
         <Route path="settings" element={<Settings />} />
         <Route path="billing" element={<PaymentHistory />} />
+        <Route path="orders" element={<Orders />} />
       </Route>
 
       {/* Admin Route */}
