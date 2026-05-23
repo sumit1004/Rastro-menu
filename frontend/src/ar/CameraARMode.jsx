@@ -219,10 +219,10 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       dishGroup.position.copy(interaction.current.positionOffset);
       dishGroup.position.y += hoverOffset;
       
-      // Cinematic slow rotation for video mode (6-8s per rotation -> ~0.8 rad/s)
-      if (isVideo) {
-        dishGroup.rotation.y = time * 0.8;
-      }
+      // Cinematic slow rotation removed per user request to keep object completely stable
+      // if (isVideo) {
+      //   dishGroup.rotation.y = time * 0.8;
+      // }
 
       // Dynamic Shadow morphing & Fake Occlusion Darkening (Addition 4)
       if (shadowMeshRef && materialRef) {
