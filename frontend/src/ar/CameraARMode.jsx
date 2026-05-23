@@ -247,7 +247,7 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
         containerRef.current.removeChild(renderer.domElement);
       }
     };
-  }, [dish.ar_image_url, performanceClass, onCameraError]);
+  }, [dish.ar_image_url, dish.ar_video_url, dish.ar_asset_type, performanceClass, onCameraError]);
 
   // Touch handlers
   const getDistance = (touch1, touch2) => Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);

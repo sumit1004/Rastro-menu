@@ -438,7 +438,7 @@ const PublicMenu = () => {
               {selectedDish.ai_description || selectedDish.description || selectedDish.short_description}
             </p>
 
-            {selectedDish.ar_enabled && selectedDish.ar_image_url ? (
+            {selectedDish.ar_enabled && (selectedDish.ar_image_url || selectedDish.ar_video_url) ? (
               <Button 
                 onClick={() => {
                   setIsARViewerOpen(true);
