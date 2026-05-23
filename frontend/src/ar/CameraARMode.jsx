@@ -38,11 +38,17 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     lastTouch: null
   });
 
+  // Virtual Camera State for Spatial Anchoring
+  const virtualCamera = useRef({
+    targetX: 0,
+    targetY: 0,
+    currentX: 0,
+    currentY: 0
+  });
+
   // Gyro Smoothing Buffer (Addition 1)
   const gyroBuffer = useRef({
-    x: [], y: [],
-    targetX: 0, targetY: 0,
-    currentX: 0, currentY: 0
+    x: [], y: []
   });
   const BUFFER_SIZE = 10;
 
@@ -206,7 +212,7 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       animationFrameId = requestAnimationFrame(animate);
       const time = clock.getElapsedTime();
 
-      // Damping Interpolation for user interaction
+      // Interaction Damping
       interaction.current.scale += (interaction.current.targetScale - interaction.current.scale) * 0.1;
       interaction.current.positionOffset.lerp(interaction.current.targetPositionOffset, 0.08);
 
@@ -215,51 +221,48 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       // Calculate micro floating motion (Subtle breathing)
       const hoverOffset = Math.sin(time * 1.5) * 0.04;
       
-      // Apply offset and hover to dish group
+      // Apply offset and hover to dish group. Y is locked to plane + hover to preserve table contact
       dishGroup.position.copy(interaction.current.positionOffset);
       dishGroup.position.y += hoverOffset;
       
-      // Cinematic slow rotation removed per user request to keep object completely stable
-      // if (isVideo) {
-      //   dishGroup.rotation.y = time * 0.8;
-      // }
-
       // Dynamic Shadow morphing & Fake Occlusion Darkening (Addition 4)
       if (shadowMeshRef && materialRef) {
-        // Shadow reacts to height
-        const totalHeight = dishGroup.position.y;
-        const normalizedHeight = Math.max(0, totalHeight + 0.1); // 0 when touching table
+        // Normalized height from 0.0 (table contact) to 0.08 (max hover)
+        const normalizedHeight = Math.max(0, hoverOffset + 0.04); 
         
-        shadowMeshRef.scale.setScalar(1 + normalizedHeight * 0.5);
-        shadowMeshRef.material.opacity = Math.max(0.2, 0.85 - normalizedHeight * 2.0);
+        shadowMeshRef.scale.setScalar(1 + normalizedHeight * 4.0);
+        shadowMeshRef.material.opacity = Math.max(0.2, 0.85 - normalizedHeight * 8.0);
         
         // Fake Occlusion Darkening: object darkens slightly when closer to the shadow
-        const darkening = Math.max(0.7, 1.0 - (0.3 / (normalizedHeight + 0.5)));
-        materialRef.color.setRGB(darkening, darkening, darkening);
+        const darkening = 1.0 - (0.15 - normalizedHeight * 1.5); 
+        const finalDarkening = Math.min(1.0, Math.max(0.6, darkening));
+        materialRef.color.setRGB(finalDarkening, finalDarkening, finalDarkening);
       }
 
-      // Parallax Camera Movement with Gyro Smoothing
-      // Calculate rolling average
-      const avgX = gyroBuffer.current.x.reduce((a,b)=>a+b, 0) / (gyroBuffer.current.x.length || 1);
-      const avgY = gyroBuffer.current.y.reduce((a,b)=>a+b, 0) / (gyroBuffer.current.y.length || 1);
-      
-      gyroBuffer.current.currentX += (avgX - gyroBuffer.current.currentX) * 0.05; // heavily damped
-      gyroBuffer.current.currentY += (avgY - gyroBuffer.current.currentY) * 0.05;
+      // ---------------------------------------------------------
+      // CORE FIX: Cinematic Damped Camera Parallax
+      // ---------------------------------------------------------
+      // The camera slowly catches up to target position (lag & inertia)
+      virtualCamera.current.currentX += (virtualCamera.current.targetX - virtualCamera.current.currentX) * 0.02;
+      virtualCamera.current.currentY += (virtualCamera.current.targetY - virtualCamera.current.currentY) * 0.02;
 
-      // Apply to camera position
-      camera.position.x = gyroBuffer.current.currentX * 1.5;
-      camera.position.y = gyroBuffer.current.currentY * 1.5;
+      camera.position.x = virtualCamera.current.currentX;
+      camera.position.y = virtualCamera.current.currentY;
+      
+      // The camera always looks straight ahead from its shifted position.
+      // This causes the world coordinates to shift in the viewport exactly opposite to camera motion,
+      // perfectly simulating environmental parallax and completely preventing auto-recentering.
+      // The background moves instantly, but the object lags (resisting motion), creating massive depth.
+      camera.lookAt(camera.position.x, camera.position.y, -4);
       
       // Addition 3: Depth Falloff Blur (via CSS filter)
       if (containerRef.current) {
         // As scale decreases (moves further), increase blur slightly
-        const blurAmount = Math.max(0, (1.0 - interaction.current.scale) * 3.0);
+        const blurAmount = Math.max(0, (baseScale - interaction.current.scale) * 3.0);
         if (!isLowEnd) {
            containerRef.current.style.filter = `blur(${blurAmount}px)`;
         }
       }
-
-      camera.lookAt(ANCHOR_POS);
 
       renderer.render(scene, camera);
     };
@@ -269,28 +272,28 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     const handleOrientation = (e) => {
       if (e.gamma === null || e.beta === null) return;
       
-      const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+      // We map device tilt directly to camera translation
+      let moveX = e.gamma / 15; // Increased sensitivity to allow full viewport traversal
+      let moveY = (e.beta - 60) / 15; // Assume default holding angle is 60 deg
       
-      // Screen space mapped rotation
-      let moveX = e.gamma / 45; 
-      let moveY = (e.beta - 60) / 45; // Assume default holding angle is 60 deg
-      
-      // Deadzones
-      if (Math.abs(moveX) < 0.05) moveX = 0;
-      if (Math.abs(moveY) < 0.05) moveY = 0;
-      
-      // Addition 2: Horizon Stabilization (Aggressive vertical clamp)
-      const targetX = clamp(moveX, -1.2, 1.2);
-      const targetY = clamp(-moveY, -0.4, 0.8); // Clamp Y aggressively to prevent drift
-
-      // Add to rolling buffer
-      gyroBuffer.current.x.push(targetX);
-      gyroBuffer.current.y.push(targetY);
+      // Add to rolling buffer (Addition 1)
+      gyroBuffer.current.x.push(moveX);
+      gyroBuffer.current.y.push(-moveY); // invert Y so tilting down makes object move up 
       
       if (gyroBuffer.current.x.length > BUFFER_SIZE) {
         gyroBuffer.current.x.shift();
         gyroBuffer.current.y.shift();
       }
+
+      // Calculate rolling average for absolute stability
+      const avgX = gyroBuffer.current.x.reduce((a,b)=>a+b, 0) / gyroBuffer.current.x.length;
+      const avgY = gyroBuffer.current.y.reduce((a,b)=>a+b, 0) / gyroBuffer.current.y.length;
+      
+      const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
+      
+      // Addition 2: Horizon Stabilization (Aggressive vertical clamp)
+      virtualCamera.current.targetX = clamp(avgX, -1.5, 1.5);
+      virtualCamera.current.targetY = clamp(avgY, -0.3, 0.5); // Clamp Y aggressively to prevent drift
     };
     window.addEventListener('deviceorientation', handleOrientation);
 
@@ -362,9 +365,9 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
     interaction.current.initialDistance = null;
     interaction.current.lastTouch = null;
     
-    // Auto-center drift back on release
-    interaction.current.targetPositionOffset.x = 0;
-    interaction.current.targetPositionOffset.z = 0;
+    // Auto-center drift back on release removed to preserve environmental offset
+    // interaction.current.targetPositionOffset.x = 0;
+    // interaction.current.targetPositionOffset.z = 0;
   };
 
   return (
