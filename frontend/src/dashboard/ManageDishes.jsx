@@ -302,21 +302,7 @@ const ManageDishes = () => {
             <textarea id="ingredients" className="form-control" rows="2" value={formData.ingredients} onChange={handleChange}></textarea>
           </div>
 
-          <div className="form-group" style={{ position: 'relative' }}>
-             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <label className="form-label" style={{ color: 'var(--primary-color)' }}>Taste Profile Tags</label>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-              {formData.taste_tags.map((tag, i) => (
-                <span key={i} style={{ padding: '0.25rem 0.75rem', backgroundColor: '#f1f5f9', borderRadius: '1rem', fontSize: '0.875rem' }}>{tag}</span>
-              ))}
-              {formData.taste_tags.length === 0 && <span style={{ color: '#94a3b8', fontSize: '0.875rem' }}>No tags available.</span>}
-            </div>
-          </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 120px), 1fr))', gap: '1rem' }}>
-            <Input label="Spice Level (0-3)" type="number" min="0" max="3" id="spice_level" value={formData.spice_level} onChange={handleChange} />
-            <Input label="Calories" type="number" id="calories" value={formData.calories} onChange={handleChange} />
             <Input label="Prep Time (mins)" type="number" id="preparation_time" value={formData.preparation_time} onChange={handleChange} />
           </div>
 
