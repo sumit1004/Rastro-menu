@@ -1,5 +1,6 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
 import Button from '../components/Button';
@@ -37,6 +38,10 @@ const Login = () => {
 
   return (
     <div className="auth-container">
+      <Link to="/" className="auth-back-home">
+        <ArrowLeft size={18} />
+        Back to Home
+      </Link>
       <Link to="/" className="auth-logo">RASTRO<span>menu</span></Link>
       <Card className="auth-card">
         <h2 className="text-center mb-4">Welcome Back</h2>

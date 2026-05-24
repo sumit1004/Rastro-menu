@@ -1,5 +1,6 @@
-import React, { useContext } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useContext, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { scrollToHash } from './utils/scroll';
 import { AuthContext, AuthProvider } from './context/AuthContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import Loader from './components/Loader';
@@ -21,6 +22,18 @@ import PaymentHistory from './dashboard/PaymentHistory';
 import AdminDashboard from './admin/AdminDashboard';
 import Legal from './pages/Legal';
 import Orders from './dashboard/Orders';
+
+const HashScrollHandler = () => {
+  const location = useLocation();
+  useEffect(() => {
+    if (location.pathname === '/' && location.hash) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => scrollToHash(location.hash));
+      });
+    }
+  }, [location.pathname, location.hash]);
+  return null;
+};
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useContext(AuthContext);
@@ -81,6 +94,7 @@ function App() {
     <AuthProvider>
       <SubscriptionProvider>
         <Router>
+          <HashScrollHandler />
           <AppRoutes />
         </Router>
       </SubscriptionProvider>

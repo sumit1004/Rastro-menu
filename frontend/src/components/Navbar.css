@@ -1,4 +1,4 @@
-.navbar {
+﻿.navbar {
   background-color: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
   position: sticky;
@@ -18,7 +18,7 @@
   font-weight: 800;
   color: var(--text-main);
   letter-spacing: -0.5px;
-  z-index: 102; /* Stay above overlay */
+  z-index: 102;
 }
 
 .navbar-logo span {
@@ -31,7 +31,7 @@
   border: none;
   color: var(--text-main);
   cursor: pointer;
-  z-index: 102; /* Stay above overlay */
+  z-index: 102;
 }
 
 .navbar-links {
@@ -41,11 +41,21 @@
   font-weight: 500;
 }
 
-.navbar-links a {
+.navbar-links a,
+.navbar-link-btn {
   transition: var(--transition);
 }
 
-.navbar-links a:hover {
+.navbar-link-btn {
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.navbar-links a:hover,
+.navbar-link-btn:hover {
   color: var(--primary-color);
 }
 
@@ -61,7 +71,7 @@
   .mobile-menu-btn {
     display: block;
   }
-  
+
   .navbar-links {
     position: fixed;
     top: 0;
@@ -77,19 +87,22 @@
     transition: right 0.3s ease-in-out;
     z-index: 101;
   }
-  
+
   .navbar-links.active {
     right: 0;
   }
-  
-  .navbar-links a {
+
+  .navbar-links a,
+  .navbar-link-btn {
     width: 100%;
     display: block;
+    text-align: left;
     padding: 0.5rem 0;
     font-size: 1.125rem;
   }
-  
+
   .navbar-overlay {
     display: block;
   }
 }
+
