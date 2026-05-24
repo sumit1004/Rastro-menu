@@ -94,13 +94,20 @@ const sendMail = async ({ to, subject, html, text }) => {
 
   try {
     const transport = getTransporter();
-    const info = await transport.sendMail({
+    const sendPromise = transport.sendMail({
       from: getFromAddress(),
       to,
       subject,
       html,
       text,
     });
+    const timeoutMs = parseInt(process.env.SMTP_SEND_TIMEOUT_MS, 10) || 25000;
+    const info = await Promise.race([
+      sendPromise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('SMTP send timed out')), timeoutMs)
+      ),
+    ]);
     return { sent: true, messageId: info.messageId };
   } catch (err) {
     console.error('[emailService] Send failed:', err.message);

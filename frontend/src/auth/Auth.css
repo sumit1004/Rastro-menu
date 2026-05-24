@@ -456,6 +456,10 @@
   cursor: not-allowed;
 }
 
+.auth-submit:disabled:not(.auth-success-btn) {
+  pointer-events: none;
+}
+
 .auth-submit-spinner {
   width: 1.25rem;
   height: 1.25rem;

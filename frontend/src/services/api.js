@@ -18,14 +18,22 @@ if (rawBaseUrl) {
 
 const api = axios.create({
   baseURL: apiBaseUrl,
+  timeout: 30000,
 });
 
 // Add a request interceptor
 api.interceptors.request.use(
   (config) => {
-    const user = JSON.parse(localStorage.getItem('rastro_user'));
-    if (user && user.token) {
-      config.headers.Authorization = `Bearer ${user.token}`;
+    try {
+      const raw = localStorage.getItem('rastro_user');
+      if (raw) {
+        const user = JSON.parse(raw);
+        if (user?.token) {
+          config.headers.Authorization = `Bearer ${user.token}`;
+        }
+      }
+    } catch {
+      localStorage.removeItem('rastro_user');
     }
     return config;
   },
