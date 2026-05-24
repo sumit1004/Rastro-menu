@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { roundMoney, resolveItemPrice } = require('../utils/money');
 
 // Helper to get restaurant_id from user_id
 const getRestaurantId = async (userId) => {
@@ -28,33 +29,62 @@ const placeOrder = async (req, res) => {
     );
     const orderId = orderResult.insertId;
 
-    // Insert order items
-    const itemValues = items.map(item => [
-      orderId,
-      item.dish_id,
-      item.quantity,
-      item.plate_type,
-      item.item_price,
-      item.item_note || null
-    ]);
+    const itemValues = [];
+    let orderTotal = 0;
+
+    for (const item of items) {
+      const [dishRows] = await connection.query(
+        `SELECT id, name, price, full_plate_price, half_plate_price 
+         FROM dishes WHERE id = ? AND restaurant_id = ?`,
+        [item.dish_id, restaurant_id]
+      );
+      if (dishRows.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ message: `Invalid dish in order: ${item.dish_id}` });
+      }
+
+      const dish = dishRows[0];
+      const plateType = item.plate_type === 'half' ? 'half' : 'full';
+      const itemPrice = resolveItemPrice(dish, plateType);
+      const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+
+      itemValues.push([
+        orderId,
+        item.dish_id,
+        qty,
+        plateType,
+        itemPrice,
+        item.item_note || null,
+      ]);
+      orderTotal = roundMoney(orderTotal + itemPrice * qty);
+    }
 
     await connection.query(
       `INSERT INTO order_items (order_id, dish_id, quantity, plate_type, item_price, item_note) VALUES ?`,
       [itemValues]
     );
 
+    await connection.query(
+      `UPDATE orders SET total_amount = ? WHERE id = ?`,
+      [orderTotal, orderId]
+    );
+
     await connection.commit();
 
-    // Fetch complete order details to emit via socket
     const [newOrderRows] = await pool.query(`SELECT * FROM orders WHERE id = ?`, [orderId]);
     const newOrder = newOrderRows[0];
-    
-    // Attach items to the order object for the dashboard
-    for(let i=0; i<items.length; i++) {
-        const [dishRow] = await pool.query('SELECT name FROM dishes WHERE id = ?', [items[i].dish_id]);
-        items[i].dish_name = dishRow[0] ? dishRow[0].name : 'Unknown Dish';
-    }
-    newOrder.items = items;
+
+    const [orderItems] = await pool.query(
+      `SELECT oi.*, d.name AS dish_name FROM order_items oi
+       JOIN dishes d ON oi.dish_id = d.id
+       WHERE oi.order_id = ?`,
+      [orderId]
+    );
+    newOrder.items = orderItems.map((row) => ({
+      ...row,
+      item_price: roundMoney(row.item_price),
+      quantity: Number(row.quantity),
+    }));
 
     // Emit event to restaurant dashboard room
     const io = req.app.get('io');
@@ -110,7 +140,15 @@ const getOrders = async (req, res) => {
          WHERE oi.order_id = ?`,
         [order.id]
       );
-      order.items = items;
+      order.items = items.map((row) => ({
+        ...row,
+        item_price: roundMoney(row.item_price),
+        quantity: Number(row.quantity),
+      }));
+      order.total_amount = roundMoney(
+        order.total_amount ||
+        order.items.reduce((s, i) => s + roundMoney(i.item_price) * i.quantity, 0)
+      );
     }
 
     res.json(orders);

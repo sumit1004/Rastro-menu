@@ -1,16 +1,16 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { Mail, Lock, ArrowRight } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
-import Button from '../components/Button';
-import Input from '../components/Input';
-import Card from '../components/Card';
+import AuthLayout, { AuthBrand } from './AuthLayout';
+import AuthField from './AuthField';
 import './Auth.css';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [remember, setRemember] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
@@ -24,6 +24,11 @@ const Login = () => {
     try {
       const { data } = await api.post('/auth/login', { email, password });
       login(data);
+      if (remember) {
+        localStorage.setItem('rastro_remember_email', email);
+      } else {
+        localStorage.removeItem('rastro_remember_email');
+      }
       if (data.role === 'admin') {
         navigate('/admin');
       } else {
@@ -36,42 +41,81 @@ const Login = () => {
     }
   };
 
+  useEffect(() => {
+    const saved = localStorage.getItem('rastro_remember_email');
+    if (saved) {
+      setEmail(saved);
+      setRemember(true);
+    }
+  }, []);
+
   return (
-    <div className="auth-container">
-      <Link to="/" className="auth-back-home">
-        <ArrowLeft size={18} />
-        Back to Home
-      </Link>
-      <Link to="/" className="auth-logo">RASTRO<span>menu</span></Link>
-      <Card className="auth-card">
-        <h2 className="text-center mb-4">Welcome Back</h2>
-        {error && <div className="auth-error">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <Input 
-            label="Email Address" 
-            type="email" 
-            id="email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
-            required 
-          />
-          <Input 
-            label="Password" 
-            type="password" 
-            id="password" 
-            value={password} 
-            onChange={(e) => setPassword(e.target.value)} 
-            required 
-          />
-          <Button type="submit" className="w-full mt-4" loading={loading}>
-            Login
-          </Button>
-        </form>
-        <p className="text-center mt-4 text-muted">
-          Don't have an account? <Link to="/signup" className="text-primary">Sign up</Link>
+    <AuthLayout>
+      <div className="auth-card">
+        <AuthBrand className="auth-brand-card" />
+        <h2 className="auth-card-title">Welcome Back</h2>
+        <p className="auth-card-subtitle">
+          Login to manage your immersive AR restaurant experience.
         </p>
-      </Card>
-    </div>
+
+        {error && <div className="auth-error" role="alert">{error}</div>}
+
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          <AuthField
+            label="Email Address"
+            type="email"
+            id="email"
+            icon={Mail}
+            placeholder="Enter your email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            required
+          />
+          <AuthField
+            label="Password"
+            type="password"
+            id="password"
+            icon={Lock}
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            showToggle
+            required
+          />
+
+          <div className="auth-row-between">
+            <label className="auth-remember">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              Remember me
+            </label>
+            <button type="button" className="auth-link">
+              Forgot Password?
+            </button>
+          </div>
+
+          <button type="submit" className="auth-submit" disabled={loading}>
+            {loading ? (
+              <span className="auth-submit-spinner" aria-label="Loading" />
+            ) : (
+              <>
+                Login
+                <ArrowRight size={20} strokeWidth={2.5} aria-hidden />
+              </>
+            )}
+          </button>
+        </form>
+
+        <p className="auth-footer-text">
+          Don&apos;t have an account? <Link to="/signup">Sign Up</Link>
+        </p>
+      </div>
+    </AuthLayout>
   );
 };
 

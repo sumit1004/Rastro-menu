@@ -1,15 +1,19 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import api from '../services/api';
-import Button from '../components/Button';
-import Input from '../components/Input';
-import Card from '../components/Card';
+import AuthLayout, { AuthBrand } from './AuthLayout';
+import AuthField from './AuthField';
 import './Auth.css';
 
 const Signup = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', confirmPassword: '' });
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useContext(AuthContext);
@@ -25,13 +29,17 @@ const Signup = () => {
       return setError('Passwords do not match');
     }
 
+    if (formData.password.length < 6) {
+      return setError('Password must be at least 6 characters');
+    }
+
     setLoading(true);
 
     try {
       const { data } = await api.post('/auth/signup', {
         name: formData.name,
         email: formData.email,
-        password: formData.password
+        password: formData.password,
       });
       login(data);
       navigate('/dashboard');
@@ -43,58 +51,82 @@ const Signup = () => {
   };
 
   return (
-    <div className="auth-container">
-      <Link to="/" className="auth-back-home">
-        <ArrowLeft size={18} />
-        Back to Home
-      </Link>
-      <Link to="/" className="auth-logo">RASTRO<span>menu</span></Link>
-      <Card className="auth-card">
-        <h2 className="text-center mb-4">Create Your Account</h2>
-        {error && <div className="auth-error">{error}</div>}
-        <form onSubmit={handleSubmit}>
-          <Input 
-            label="Restaurant Owner Name" 
-            type="text" 
-            id="name" 
-            value={formData.name} 
-            onChange={handleChange} 
-            required 
+    <AuthLayout>
+      <div className="auth-card">
+        <AuthBrand className="auth-brand-card" />
+        <h2 className="auth-card-title">Create Your Account</h2>
+        <p className="auth-card-subtitle">
+          Start your immersive AR restaurant journey in minutes.
+        </p>
+
+        {error && <div className="auth-error" role="alert">{error}</div>}
+
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          <AuthField
+            label="Restaurant Owner Name"
+            type="text"
+            id="name"
+            icon={User}
+            placeholder="Enter your name"
+            value={formData.name}
+            onChange={handleChange}
+            autoComplete="name"
+            required
           />
-          <Input 
-            label="Email Address" 
-            type="email" 
-            id="email" 
-            value={formData.email} 
-            onChange={handleChange} 
-            required 
+          <AuthField
+            label="Email Address"
+            type="email"
+            id="email"
+            icon={Mail}
+            placeholder="Enter your email"
+            value={formData.email}
+            onChange={handleChange}
+            autoComplete="email"
+            required
           />
-          <Input 
-            label="Password" 
-            type="password" 
-            id="password" 
-            value={formData.password} 
-            onChange={handleChange} 
-            required 
+          <AuthField
+            label="Password"
+            type="password"
+            id="password"
+            icon={Lock}
+            placeholder="Create a password"
+            value={formData.password}
+            onChange={handleChange}
+            autoComplete="new-password"
+            showToggle
+            required
             minLength={6}
           />
-          <Input 
-            label="Confirm Password" 
-            type="password" 
-            id="confirmPassword" 
-            value={formData.confirmPassword} 
-            onChange={handleChange} 
-            required 
+          <AuthField
+            label="Confirm Password"
+            type="password"
+            id="confirmPassword"
+            icon={Lock}
+            placeholder="Confirm your password"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            autoComplete="new-password"
+            showToggle
+            required
           />
-          <Button type="submit" className="w-full mt-4" loading={loading}>
-            Sign Up
-          </Button>
+
+          <button type="submit" className="auth-submit" disabled={loading}>
+            {loading ? (
+              <span className="auth-submit-spinner" aria-label="Loading" />
+            ) : (
+              <>
+                Sign Up
+                <ArrowRight size={20} strokeWidth={2.5} aria-hidden />
+              </>
+            )}
+          </button>
         </form>
-        <p className="text-center mt-4 text-muted">
-          Already have an account? <Link to="/login" className="text-primary">Login</Link>
+
+        <p className="auth-footer-text">
+          Already have an account? <Link to="/login">Login</Link>
         </p>
-      </Card>
-    </div>
+      </div>
+    </AuthLayout>
   );
 };
 

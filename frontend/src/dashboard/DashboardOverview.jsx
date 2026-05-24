@@ -5,6 +5,7 @@ import api from '../services/api';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
 import Button from '../components/Button';
+import { formatRupee, lineTotal, sumOrderItems } from '../utils/money';
 
 const StarRating = ({ rating }) => (
   <span style={{ color: '#f59e0b', fontSize: '0.8rem', letterSpacing: '-1px' }}>
@@ -224,14 +225,16 @@ const DashboardOverview = () => {
                      {order.items && order.items.map((item, idx) => (
                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', marginBottom: '0.25rem' }}>
                          <span>{item.quantity}x {item.dish_name} <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>({item.plate_type})</span></span>
-                         <span style={{ fontWeight: '500' }}>₹{item.item_price * item.quantity}</span>
+                         <span style={{ fontWeight: '500' }}>₹{formatRupee(lineTotal(item.item_price, item.quantity))}</span>
                        </div>
                      ))}
                    </div>
                    
                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold', marginBottom: '1rem' }}>
                      <span>Total</span>
-                     <span>₹{Number(order.total_amount) ? order.total_amount : order.items?.reduce((s, item) => s + item.item_price * item.quantity, 0)}</span>
+                     <span>₹{formatRupee(
+                       Number(order.total_amount) > 0 ? order.total_amount : sumOrderItems(order.items)
+                     )}</span>
                    </div>
                    
                    <div className="live-order-actions">

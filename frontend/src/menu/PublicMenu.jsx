@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { Star, Clock, Flame, Info, Search, Sparkles, Camera, ShoppingBag, Plus, Minus, X } from 'lucide-react';
+import {
+  Star, Clock, Flame, Info, Search, Sparkles, Camera, ShoppingBag, Plus, Minus, X,
+  UtensilsCrossed, MapPin, Phone, ScanLine, Layers
+} from 'lucide-react';
 import api, { getImageUrl } from '../services/api';
 import analyticsService from '../services/analyticsService';
 import ARViewer from '../ar/ARViewer';
 import Loader from '../components/Loader';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
+import { toMoneyNumber, formatRupee, lineTotal, sumOrderItems } from '../utils/money';
 import './PublicMenu.css';
 
 const useDebounce = (value, delay) => {
@@ -60,6 +64,7 @@ const PublicMenu = () => {
   const [checkoutTableNumber, setCheckoutTableNumber] = useState('');
   const [checkoutMobileNumber, setCheckoutMobileNumber] = useState('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [addedDishId, setAddedDishId] = useState(null);
 
   // Reset ordering options when modal opens
   useEffect(() => {
@@ -221,9 +226,15 @@ const PublicMenu = () => {
       .slice(0, 6);
   }, [dishes, debouncedSearch]);
 
+  const trendingForDesktop = useMemo(() => {
+    if (debouncedSearch) return [];
+    if (trendingDishes.length > 0) return trendingDishes.slice(0, 6);
+    return recommendedDishes.slice(0, 6);
+  }, [trendingDishes, recommendedDishes, debouncedSearch]);
+
   // --- ORDERING LOGIC ---
   const handleAddToTable = () => {
-    const itemPrice = orderPlateType === 'full' ? selectedDish.full_plate_price || selectedDish.price : selectedDish.half_plate_price;
+    const itemPrice = getDishPrice(selectedDish, orderPlateType);
     const newItem = {
       dish_id: selectedDish.id,
       dish_name: selectedDish.name,
@@ -239,7 +250,7 @@ const PublicMenu = () => {
   };
 
   const handleOrderNow = () => {
-    const itemPrice = orderPlateType === 'full' ? selectedDish.full_plate_price || selectedDish.price : selectedDish.half_plate_price;
+    const itemPrice = getDishPrice(selectedDish, orderPlateType);
     const newItem = {
       dish_id: selectedDish.id,
       dish_name: selectedDish.name,
@@ -313,14 +324,129 @@ const PublicMenu = () => {
   const getBestThumbnail = (dish) => {
     if (dish.ai_enhanced_image) return getImageUrl(dish.ai_enhanced_image);
     if (dish.thumbnail_url) return getImageUrl(dish.thumbnail_url);
+    if (dish.image_url) return getImageUrl(dish.image_url);
     return null;
   };
 
-  const basketTotal = tableBasket.reduce((sum, item) => sum + (item.item_price * item.quantity), 0);
+  const getDefaultPlateType = (dish) => {
+    if (dish.has_half_plate && !dish.has_full_plate) return 'half';
+    return 'full';
+  };
+
+  const getDishPrice = (dish, plateType = 'full') => {
+    const base = toMoneyNumber(dish.price);
+    if (plateType === 'half') {
+      const half = toMoneyNumber(dish.half_plate_price);
+      return half > 0 ? half : toMoneyNumber(base / 2);
+    }
+    const full = toMoneyNumber(dish.full_plate_price);
+    if (full <= 0) return base;
+    if (base > 0 && Math.abs(full - base) <= 0.05) return base;
+    return full;
+  };
+
+  const getDisplayPrice = (dish, plateType) =>
+    formatRupee(getDishPrice(dish, plateType ?? getDefaultPlateType(dish)));
+
+  const handleQuickAdd = (dish, e) => {
+    e?.stopPropagation();
+    const plateType = getDefaultPlateType(dish);
+    setTableBasket((prev) => [
+      ...prev,
+      {
+        dish_id: dish.id,
+        dish_name: dish.name,
+        quantity: 1,
+        plate_type: plateType,
+        item_price: getDishPrice(dish, plateType),
+        item_note: '',
+        temp_id: Date.now(),
+      },
+    ]);
+    setAddedDishId(dish.id);
+    setTimeout(() => setAddedDishId(null), 1500);
+  };
+
+  const handleQuickAR = (dish, e) => {
+    e?.stopPropagation();
+    setSelectedDish(dish);
+    if (dish.ar_enabled && (dish.ar_image_url || dish.ar_video_url)) {
+      setIsARViewerOpen(true);
+    }
+  };
+
+  const basketTotal = sumOrderItems(tableBasket);
+
+  const renderDesktopTrendLight = (dish, index) => (
+    <article
+      key={`dt-light-${dish.id}`}
+      className="pm-d-trend-light"
+      onClick={() => setSelectedDish(dish)}
+      onKeyDown={(e) => e.key === 'Enter' && setSelectedDish(dish)}
+      role="button"
+      tabIndex={0}
+    >
+      <div className="pm-d-trend-light-img">
+        {getBestThumbnail(dish) ? (
+          <img src={getBestThumbnail(dish)} alt={dish.name} loading="lazy" />
+        ) : (
+          <div className="pm-d-img-ph">No image</div>
+        )}
+        {index === 0 && <span className="pm-d-hot-badge">Hot Choices</span>}
+      </div>
+      <div className="pm-d-trend-light-body">
+        <h4>{dish.name}</h4>
+        <p className="pm-d-trend-price">₹{getDisplayPrice(dish)}</p>
+        <p className="pm-d-trend-desc">
+          {dish.ai_description || dish.short_description || dish.description || ''}
+        </p>
+      </div>
+    </article>
+  );
+
+  const renderDesktopDishCard = (dish) => (
+    <article key={`d-dish-${dish.id}`} className="pm-d-dish-card">
+      <button type="button" className="pm-d-dish-img" onClick={() => setSelectedDish(dish)}>
+        {getBestThumbnail(dish) ? (
+          <img src={getBestThumbnail(dish)} alt={dish.name} loading="lazy" />
+        ) : (
+          <div className="pm-d-img-ph">No image</div>
+        )}
+      </button>
+      <div className="pm-d-dish-body">
+        <button type="button" className="pm-d-dish-title" onClick={() => setSelectedDish(dish)}>
+          {dish.name}
+        </button>
+        <p className="pm-d-dish-desc">
+          {dish.ai_description || dish.short_description || dish.description || 'Delicious dish from our kitchen.'}
+        </p>
+        <div className="pm-d-dish-meta">
+          <span className="pm-d-dish-price">₹{getDisplayPrice(dish)}</span>
+          <button type="button" className="pm-d-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
+            <ScanLine size={14} />
+            AR View
+          </button>
+        </div>
+        <div className="pm-d-dish-actions">
+          <button type="button" className="pm-d-stack-btn" onClick={() => setSelectedDish(dish)} aria-label="Details">
+            <Layers size={18} />
+          </button>
+          <button
+            type="button"
+            className={`pm-d-add-btn ${addedDishId === dish.id ? 'is-added' : ''}`}
+            onClick={(e) => handleQuickAdd(dish, e)}
+          >
+            {addedDishId === dish.id ? 'Added!' : 'Add to Order'}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
 
   return (
-    <div className="public-menu-container" style={{ paddingBottom: '80px' }}>
-      {/* Banner */}
+    <div className="public-menu-container">
+      {/* ========== MOBILE (unchanged) ========== */}
+      <div className="pm-view-mobile">
       <div className="menu-banner" style={{ backgroundImage: `url(${restaurant.banner ? getImageUrl(restaurant.banner) : 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1934&auto=format&fit=crop'})` }}>
         <div className="menu-banner-overlay"></div>
       </div>
@@ -391,7 +517,7 @@ const PublicMenu = () => {
                   <div className="rec-content">
                     <h3 className="rec-title">{dish.name}</h3>
                     <div className="rec-meta">
-                      <span className="dish-price">₹{dish.price}</span>
+                      <span className="dish-price">₹{getDisplayPrice(dish)}</span>
                       {dish.average_rating > 0 && (
                         <div className="dish-rating">
                           <Star size={12} fill="#f59e0b" color="#f59e0b" />
@@ -424,7 +550,7 @@ const PublicMenu = () => {
                   <div className="rec-content">
                     <h3 className="rec-title">{dish.name}</h3>
                     <div className="rec-meta">
-                      <span className="dish-price">₹{dish.price}</span>
+                      <span className="dish-price">₹{getDisplayPrice(dish)}</span>
                       {dish.average_rating > 0 && (
                         <div className="dish-rating">
                           <Star size={12} fill="#f59e0b" color="#f59e0b" />
@@ -456,7 +582,7 @@ const PublicMenu = () => {
                   <div className="dish-list-content">
                     <div className="dish-list-header">
                       <h3>{dish.name}</h3>
-                      <span className="dish-price">₹{dish.price}</span>
+                      <span className="dish-price">₹{getDisplayPrice(dish)}</span>
                     </div>
                     <p className="dish-list-desc">{dish.ai_description || dish.description || dish.short_description}</p>
                     {renderTasteTags(dish)}
@@ -481,23 +607,109 @@ const PublicMenu = () => {
         </div>
       </div>
 
-      {/* Floating Basket Button */}
       {tableBasket.length > 0 && (
-        <div 
+        <div
+          className="pm-floating-basket pm-view-mobile"
           onClick={() => setIsBasketOpen(true)}
-          style={{
-            position: 'fixed', bottom: '2rem', right: '2rem', zIndex: 100,
-            background: 'var(--primary-color)', color: 'white',
-            padding: '1rem 1.5rem', borderRadius: '2rem',
-            boxShadow: '0 10px 25px -5px rgba(0,0,0,0.3)',
-            display: 'flex', alignItems: 'center', gap: '0.75rem',
-            cursor: 'pointer', fontWeight: 'bold'
-          }}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && setIsBasketOpen(true)}
         >
           <ShoppingBag size={20} />
           <span>View Table Order ({tableBasket.length})</span>
         </div>
       )}
+      </div>
+
+      {/* ========== DESKTOP (reference layout, no navbar) ========== */}
+      <div className="pm-view-desktop">
+        <div className="pm-d-page">
+          <header className="pm-d-brand-header">
+            <h1 className="pm-d-brand">Rastro</h1>
+            <div className="pm-d-meta">
+              <span className="pm-d-meta-item">
+                <UtensilsCrossed size={16} />
+                {restaurant.cuisine_type || 'Restaurant'}
+              </span>
+              {restaurant.address && (
+                <span className="pm-d-meta-item">
+                  <MapPin size={16} />
+                  {restaurant.address}
+                </span>
+              )}
+              {restaurant.phone && (
+                <span className="pm-d-meta-item">
+                  <Phone size={16} />
+                  <a href={`tel:${restaurant.phone}`}>{restaurant.phone}</a>
+                </span>
+              )}
+            </div>
+          </header>
+
+          <div className="pm-d-toolbar">
+            <div className="pm-d-search">
+              <input
+                type="text"
+                className="pm-d-search-input"
+                placeholder="Search dishes, ingredients, tags..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              <Search size={20} className="pm-d-search-icon" aria-hidden />
+            </div>
+            <div className="pm-d-categories">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  className={`pm-d-cat ${activeCategory === cat ? 'is-active' : ''}`}
+                  onClick={() => setActiveCategory(cat)}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {trendingForDesktop.length > 0 && activeCategory === 'All' && !searchQuery && (
+            <section className="pm-d-section">
+              <h2 className="pm-d-section-title">Trending Now</h2>
+              <div className="pm-d-trend-light-row">
+                {trendingForDesktop.slice(0, 3).map((dish, i) => renderDesktopTrendLight(dish, i))}
+              </div>
+              <div className="pm-d-dots" aria-hidden>
+                <span className="is-active" />
+                <span />
+                <span />
+              </div>
+            </section>
+          )}
+
+          <section className="pm-d-section pm-d-dishes-block">
+            <h2 className="pm-d-section-title">
+              {searchQuery ? 'Search Results' : 'All Dishes'}
+            </h2>
+            {filteredDishes.length === 0 ? (
+              <p className="pm-d-empty">No dishes found matching your criteria.</p>
+            ) : (
+              <div className="pm-d-dish-grid">
+                {filteredDishes.map((dish) => renderDesktopDishCard(dish))}
+              </div>
+            )}
+          </section>
+        </div>
+
+        {tableBasket.length > 0 && (
+          <button
+            type="button"
+            className="pm-d-floating-cart"
+            onClick={() => setIsBasketOpen(true)}
+          >
+            <ShoppingBag size={20} />
+            View Table Order ({tableBasket.length})
+          </button>
+        )}
+      </div>
 
       {/* Table Basket Drawer/Modal */}
       <Modal isOpen={isBasketOpen} onClose={() => setIsBasketOpen(false)} title="Your Table Order">
@@ -511,12 +723,12 @@ const PublicMenu = () => {
                   <div>
                     <h4 style={{ margin: '0 0 0.25rem 0' }}>{item.quantity}x {item.dish_name}</h4>
                     <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
-                      {item.plate_type === 'half' ? 'Half Plate' : 'Full Plate'} • ₹{item.item_price}
+                      {item.plate_type === 'half' ? 'Half Plate' : 'Full Plate'} • ₹{formatRupee(item.item_price)}
                     </p>
                     {item.item_note && <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.875rem', fontStyle: 'italic', color: '#64748b' }}>Note: {item.item_note}</p>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span style={{ fontWeight: 'bold' }}>₹{item.item_price * item.quantity}</span>
+                    <span style={{ fontWeight: 'bold' }}>₹{formatRupee(lineTotal(item.item_price, item.quantity))}</span>
                     <button onClick={() => handleRemoveFromBasket(item.temp_id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '0.5rem' }}>
                       <X size={18} />
                     </button>
@@ -526,7 +738,7 @@ const PublicMenu = () => {
               
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', paddingTop: '1rem', borderTop: '2px solid #e2e8f0' }}>
                 <span style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Total</span>
-                <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>₹{basketTotal}</span>
+                <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>₹{formatRupee(basketTotal)}</span>
               </div>
               
               <Button onClick={() => { setIsBasketOpen(false); setQuickOrderItems(null); setIsCheckoutOpen(true); }} style={{ width: '100%', marginTop: '1rem', padding: '1rem' }}>
@@ -585,7 +797,7 @@ const PublicMenu = () => {
             <div className="dish-modal-header mt-4">
               <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{selectedDish.name}</h2>
               <span style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--primary-color)' }}>
-                 ₹{orderPlateType === 'full' ? (selectedDish.full_plate_price || selectedDish.price) : selectedDish.half_plate_price}
+                 ₹{getDisplayPrice(selectedDish, orderPlateType)}
               </span>
             </div>
             
@@ -618,14 +830,14 @@ const PublicMenu = () => {
                        onClick={() => setOrderPlateType('half')}
                        style={{ flex: 1, padding: '0.75rem', borderRadius: '0.5rem', border: `2px solid ${orderPlateType === 'half' ? 'var(--primary-color)' : '#cbd5e1'}`, backgroundColor: orderPlateType === 'half' ? '#eff6ff' : 'white', fontWeight: orderPlateType === 'half' ? 'bold' : 'normal' }}
                      >
-                       Half (₹{selectedDish.half_plate_price})
+                       Half (₹{getDisplayPrice(selectedDish, 'half')})
                      </button>
                      <button 
                        type="button"
                        onClick={() => setOrderPlateType('full')}
                        style={{ flex: 1, padding: '0.75rem', borderRadius: '0.5rem', border: `2px solid ${orderPlateType === 'full' ? 'var(--primary-color)' : '#cbd5e1'}`, backgroundColor: orderPlateType === 'full' ? '#eff6ff' : 'white', fontWeight: orderPlateType === 'full' ? 'bold' : 'normal' }}
                      >
-                       Full (₹{selectedDish.full_plate_price || selectedDish.price})
+                       Full (₹{getDisplayPrice(selectedDish, 'full')})
                      </button>
                    </div>
                  </div>

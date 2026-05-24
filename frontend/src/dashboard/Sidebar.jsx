@@ -25,11 +25,11 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
 
   const navItems = [
     { name: 'Overview',          path: '/dashboard',          icon: <LayoutDashboard size={20} />, exact: true },
-    { name: 'Analytics',         path: '/dashboard/analytics', icon: <TrendingUp size={20} /> },
-    { name: 'Restaurant Profile',path: '/dashboard/profile',   icon: <Store size={20} /> },
-    { name: 'Manage Dishes',     path: '/dashboard/dishes',    icon: <Utensils size={20} /> },
-    { name: 'Manage Reviews',    path: '/dashboard/reviews',   icon: <MessageSquare size={20} /> },
     { name: 'Orders',            path: '/dashboard/orders',    icon: <ShoppingBag size={20} /> },
+    { name: 'Analytics',         path: '/dashboard/analytics', icon: <TrendingUp size={20} /> },
+    { name: 'Manage Dishes',     path: '/dashboard/dishes',    icon: <Utensils size={20} /> }, 
+    { name: 'Restaurant Profile',path: '/dashboard/profile',   icon: <Store size={20} /> },
+    { name: 'Manage Reviews',    path: '/dashboard/reviews',   icon: <MessageSquare size={20} /> },
     { name: 'QR Menu',           path: '/dashboard/qr-menu',  icon: <QrCode size={20} /> },
     { name: 'Settings',          path: '/dashboard/settings',  icon: <Settings size={20} /> },
   ];

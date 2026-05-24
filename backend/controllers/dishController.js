@@ -1,5 +1,6 @@
 const pool = require('../config/db');
 const { optimizeArImage } = require('../utils/arImageOptimizer');
+const { roundMoney } = require('../utils/money');
 
 // Helper to get restaurant_id from user_id
 const getRestaurantId = async (userId) => {
@@ -48,11 +49,11 @@ const addDish = async (req, res) => {
     const description = req.body.description || null;
     const ingredients = req.body.ingredients || null;
     const category = req.body.category || null;
-    const price = req.body.price || 0;
+    const price = roundMoney(req.body.price || 0);
     const has_full_plate = req.body.has_full_plate === 'true' || req.body.has_full_plate === true || req.body.has_full_plate === '1' || req.body.has_full_plate === 1;
     const has_half_plate = req.body.has_half_plate === 'true' || req.body.has_half_plate === true || req.body.has_half_plate === '1' || req.body.has_half_plate === 1;
-    const full_plate_price = req.body.full_plate_price || price;
-    const half_plate_price = req.body.half_plate_price || 0;
+    const full_plate_price = roundMoney(req.body.full_plate_price || price);
+    const half_plate_price = roundMoney(req.body.half_plate_price || 0);
     const spice_level = req.body.spice_level || 0;
     const calories = req.body.calories || null;
     const preparation_time = req.body.preparation_time || null;
@@ -118,16 +119,23 @@ const updateDish = async (req, res) => {
     const [existing] = await pool.query('SELECT * FROM dishes WHERE id = ? AND restaurant_id = ?', [dishId, restaurantId]);
     if (existing.length === 0) return res.status(404).json({ message: 'Dish not found or unauthorized' });
 
+    const oldDish = existing[0];
     const name = req.body.name;
     const short_description = req.body.short_description || null;
     const description = req.body.description || null;
     const ingredients = req.body.ingredients || null;
     const category = req.body.category || null;
-    const price = req.body.price || 0;
+    const price = roundMoney(req.body.price || 0);
     const has_full_plate = req.body.has_full_plate === 'true' || req.body.has_full_plate === true || req.body.has_full_plate === '1' || req.body.has_full_plate === 1;
     const has_half_plate = req.body.has_half_plate === 'true' || req.body.has_half_plate === true || req.body.has_half_plate === '1' || req.body.has_half_plate === 1;
-    const full_plate_price = req.body.full_plate_price || price;
-    const half_plate_price = req.body.half_plate_price || 0;
+    let full_plate_price = roundMoney(req.body.full_plate_price || price);
+    const half_plate_price = roundMoney(req.body.half_plate_price || 0);
+
+    const oldFull = roundMoney(oldDish.full_plate_price);
+    const oldPrice = roundMoney(oldDish.price);
+    if (oldFull === oldPrice || oldFull === 0) {
+      full_plate_price = price;
+    }
     const spice_level = req.body.spice_level || 0;
     const calories = req.body.calories || null;
     const preparation_time = req.body.preparation_time || null;

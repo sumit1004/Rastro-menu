@@ -3,6 +3,7 @@ import { Clock, ShoppingBag, ChevronDown, ChevronUp, Calendar } from 'lucide-rea
 import api from '../services/api';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
+import { formatRupee, lineTotal, sumOrderItems } from '../utils/money';
 import './Dashboard.css';
 
 const formatDateTime = (dateStr) => {
@@ -37,7 +38,7 @@ const STATUS_STYLES = {
 const OrderRow = ({ order }) => {
   const [expanded, setExpanded] = useState(false);
   const style = STATUS_STYLES[order.order_status] || STATUS_STYLES.pending;
-  const total = order.items?.reduce((sum, item) => sum + (item.item_price * item.quantity), 0) || 0;
+  const total = sumOrderItems(order.items);
 
   return (
     <article className="order-history-row">
@@ -63,7 +64,7 @@ const OrderRow = ({ order }) => {
           </p>
         </div>
         <div className="order-history-end">
-          <span className="order-history-amount">₹{total}</span>
+          <span className="order-history-amount">₹{formatRupee(total)}</span>
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
       </button>
@@ -77,10 +78,10 @@ const OrderRow = ({ order }) => {
                 <span className="order-history-plate">({item.plate_type})</span>
                 {item.item_note && <span className="order-history-note">Note: {item.item_note}</span>}
               </span>
-              <span>₹{item.item_price * item.quantity}</span>
+              <span>₹{formatRupee(lineTotal(item.item_price, item.quantity))}</span>
             </div>
           ))}
-          <div className="order-history-total">Total: ₹{total}</div>
+          <div className="order-history-total">Total: ₹{formatRupee(total)}</div>
         </div>
       )}
     </article>
@@ -153,7 +154,7 @@ const Orders = () => {
   const cancelledCount = filteredOrders.filter((o) => o.order_status === 'cancelled').length;
   const totalRevenue = filteredOrders
     .filter((o) => ['completed', 'delivered'].includes(o.order_status))
-    .reduce((sum, o) => sum + (o.items?.reduce((s, item) => s + item.item_price * item.quantity, 0) || 0), 0);
+    .reduce((sum, o) => sum + sumOrderItems(o.items), 0);
 
   const applyFilter = (value) => {
     setFilter(value);
@@ -163,7 +164,7 @@ const Orders = () => {
   const mobileStats = [
     { label: 'Total', value: filteredOrders.length, tone: 'default' },
     { label: 'Done', value: completedCount, tone: 'success' },
-    { label: 'Revenue', value: `₹${totalRevenue}`, tone: 'info' },
+    { label: 'Revenue', value: `₹${formatRupee(totalRevenue)}`, tone: 'info' },
     { label: 'Cancelled', value: cancelledCount, tone: 'danger' },
   ];
 
@@ -265,7 +266,7 @@ const Orders = () => {
             </div>
             <div className="stat-info">
               <h4 style={{ color: '#1e40af' }}>Revenue</h4>
-              <p style={{ color: '#1e40af' }}>Rs.{totalRevenue}</p>
+              <p style={{ color: '#1e40af' }}>₹{formatRupee(totalRevenue)}</p>
             </div>
           </Card>
           <Card className="stat-card" style={{ backgroundColor: '#fee2e2', border: '1px solid #fca5a5' }}>

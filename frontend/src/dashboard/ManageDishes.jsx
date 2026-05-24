@@ -74,6 +74,10 @@ const ManageDishes = () => {
 
   const handleChange = (e) => {
     const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
+    if (e.target.id === 'price' && formData.has_full_plate) {
+      setFormData({ ...formData, price: value, full_plate_price: value });
+      return;
+    }
     setFormData({ ...formData, [e.target.id]: value });
   };
 
