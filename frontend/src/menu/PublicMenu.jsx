@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Star, Clock, Flame, Info, Search, Sparkles, Camera, ShoppingBag, Plus, Minus, X,
-  UtensilsCrossed, MapPin, Phone, ScanLine, Layers
+  UtensilsCrossed, MapPin, Phone, ScanLine, Layers, Menu, Home, User
 } from 'lucide-react';
 import api, { getImageUrl } from '../services/api';
 import analyticsService from '../services/analyticsService';
@@ -65,6 +65,9 @@ const PublicMenu = () => {
   const [checkoutMobileNumber, setCheckoutMobileNumber] = useState('');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [addedDishId, setAddedDishId] = useState(null);
+  const [mobileNav, setMobileNav] = useState('home');
+  const searchSectionRef = useRef(null);
+  const heroRef = useRef(null);
 
   // Reset ordering options when modal opens
   useEffect(() => {
@@ -96,6 +99,17 @@ const PublicMenu = () => {
       img.src = getImageUrl(selectedDish.ar_image_url);
     }
   }, [selectedDish, restaurant]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const header = document.getElementById('pm-m-header');
+      if (header) {
+        header.classList.toggle('is-scrolled', window.scrollY > 50);
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -231,6 +245,21 @@ const PublicMenu = () => {
     if (trendingDishes.length > 0) return trendingDishes.slice(0, 6);
     return recommendedDishes.slice(0, 6);
   }, [trendingDishes, recommendedDishes, debouncedSearch]);
+
+  const trendingForMobile = useMemo(() => {
+    if (debouncedSearch) return [];
+    if (trendingDishes.length > 0) return trendingDishes.slice(0, 8);
+    return recommendedDishes.slice(0, 8);
+  }, [trendingDishes, recommendedDishes, debouncedSearch]);
+
+  const scrollToMobileSearch = () => {
+    setMobileNav('search');
+    searchSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => {
+      const input = document.getElementById('pm-m-search-input');
+      input?.focus();
+    }, 400);
+  };
 
   // --- ORDERING LOGIC ---
   const handleAddToTable = () => {
@@ -375,7 +404,87 @@ const PublicMenu = () => {
     }
   };
 
+  const getTrendingBadge = (dish, index) => {
+    if (dish.is_featured) return "Chef's Special";
+    if (index === 0) return 'Hot Choice';
+    return 'Trending';
+  };
+
+  const renderMobileTrendCard = (dish, index) => (
+    <article
+      key={`m-trend-${dish.id}`}
+      className="pm-m-trend-card"
+      onClick={() => setSelectedDish(dish)}
+      onKeyDown={(e) => e.key === 'Enter' && setSelectedDish(dish)}
+      role="button"
+      tabIndex={0}
+    >
+      <div className="pm-m-trend-img">
+        {getBestThumbnail(dish) ? (
+          <img src={getBestThumbnail(dish)} alt={dish.name} loading="lazy" />
+        ) : (
+          <div className="pm-m-img-ph">No image</div>
+        )}
+        <span className="pm-m-trend-badge">{getTrendingBadge(dish, index)}</span>
+      </div>
+      <div className="pm-m-trend-body">
+        <div className="pm-m-trend-head">
+          <h4>{dish.name}</h4>
+          <span className="pm-m-price">₹{getDisplayPrice(dish)}</span>
+        </div>
+        <p>{dish.ai_description || dish.short_description || dish.description || ''}</p>
+      </div>
+    </article>
+  );
+
+  const renderMobileDishRow = (dish) => (
+    <article key={`m-dish-${dish.id}`} className="pm-m-dish-row">
+      <button type="button" className="pm-m-dish-thumb" onClick={() => setSelectedDish(dish)}>
+        {getBestThumbnail(dish) ? (
+          <img src={getBestThumbnail(dish)} alt={dish.name} loading="lazy" />
+        ) : (
+          <div className="pm-m-img-ph">No image</div>
+        )}
+      </button>
+      <div className="pm-m-dish-info">
+        <div className="pm-m-dish-head">
+          <button type="button" className="pm-m-dish-name" onClick={() => setSelectedDish(dish)}>
+            {dish.name}
+          </button>
+          <span className="pm-m-price">₹{getDisplayPrice(dish)}</span>
+        </div>
+        <p className="pm-m-dish-desc">
+          {dish.ai_description || dish.short_description || dish.description || 'Delicious dish from our kitchen.'}
+        </p>
+        <div className="pm-m-dish-actions">
+          <button type="button" className="pm-m-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
+            <ScanLine size={16} />
+            AR View
+          </button>
+          <button
+            type="button"
+            className={`pm-m-add-btn ${addedDishId === dish.id ? 'is-added' : ''}`}
+            onClick={(e) => handleQuickAdd(dish, e)}
+          >
+            {addedDishId === dish.id ? 'Added!' : 'Add to Order'}
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+
   const basketTotal = sumOrderItems(tableBasket);
+
+  const heroBannerUrl = restaurant.banner
+    ? getImageUrl(restaurant.banner)
+    : 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1934&auto=format&fit=crop';
+
+  const heroSubtitle = [
+    restaurant.cuisine_type || 'Fine Dining',
+    restaurant.address ? restaurant.address.split(',')[0] : null,
+  ]
+    .filter(Boolean)
+    .join(' • ');
 
   const renderDesktopTrendLight = (dish, index) => (
     <article
@@ -445,180 +554,151 @@ const PublicMenu = () => {
 
   return (
     <div className="public-menu-container">
-      {/* ========== MOBILE (unchanged) ========== */}
+      {/* ========== MOBILE — premium reference layout ========== */}
       <div className="pm-view-mobile">
-      <div className="menu-banner" style={{ backgroundImage: `url(${restaurant.banner ? getImageUrl(restaurant.banner) : 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1934&auto=format&fit=crop'})` }}>
-        <div className="menu-banner-overlay"></div>
-      </div>
-      
-      <div className="menu-header container">
-        <div className="menu-logo">
-          {restaurant.logo ? (
-            <img src={getImageUrl(restaurant.logo)} alt={restaurant.restaurant_name} />
-          ) : (
-            <div className="menu-logo-placeholder">{restaurant.restaurant_name.charAt(0)}</div>
-          )}
-        </div>
-        <div className="menu-info">
-          <h1>{restaurant.restaurant_name}</h1>
-          <p className="menu-cuisine">{restaurant.cuisine_type || 'Restaurant'}</p>
-          <div className="menu-meta">
-            {restaurant.address && <span>{restaurant.address}</span>}
-            {restaurant.phone && <span> • {restaurant.phone}</span>}
-          </div>
-          {restaurant.description && <p className="menu-desc">{restaurant.description}</p>}
-        </div>
-      </div>
+        <header className="pm-m-header" id="pm-m-header">
+          <button
+            type="button"
+            className="pm-m-icon-btn"
+            aria-label="Restaurant info"
+            onClick={() => heroRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          >
+            <Menu size={22} />
+          </button>
+          <h1 className="pm-m-logo">Rastro</h1>
+          <button type="button" className="pm-m-icon-btn" aria-label="Search" onClick={scrollToMobileSearch}>
+            <Search size={22} />
+          </button>
+        </header>
 
-      {/* Sticky Top Bar (Search + Categories) */}
-      <div className="menu-sticky-wrapper">
-        <div className="container">
-          <div className="search-bar-wrapper">
-            <Search className="search-icon" size={20} />
-            <input 
-              type="text" 
-              placeholder="Search dishes, ingredients, tags..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="search-input"
+        <main className="pm-m-main">
+          <section className="pm-m-hero" ref={heroRef}>
+            <div
+              className="pm-m-hero-bg"
+              style={{ backgroundImage: `url(${heroBannerUrl})` }}
             />
-          </div>
-        </div>
-        <div className="menu-categories scroll-hide container">
-          {categories.map(cat => (
-            <button 
-              key={cat} 
-              className={`category-btn ${activeCategory === cat ? 'active' : ''}`}
-              onClick={() => setActiveCategory(cat)}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="container menu-content-section">
-        
-        {/* Trending Section */}
-        {trendingDishes.length > 0 && activeCategory === 'All' && !searchQuery && (
-          <div className="recommendation-section">
-            <div className="section-header-ai">
-              <h2 className="section-title mb-0" style={{ borderBottom: 'none', paddingBottom: 0 }}>Trending Now</h2>
-              <span className="ai-badge" style={{ background: 'linear-gradient(135deg, #ef4444, #f97316)' }}><Flame size={14} /> Hot Choices</span>
+            <div className="pm-m-hero-overlay" />
+            <div className="pm-m-hero-content">
+              <span className="pm-m-open-badge">Open Now</span>
+              <h2>{restaurant.restaurant_name}</h2>
+              <p>{heroSubtitle || 'Authentic flavors • Premium dining'}</p>
             </div>
-            
-            <div className="recommendation-row scroll-hide">
-              {trendingDishes.map(dish => (
-                <div key={dish.id} className="rec-card" onClick={() => setSelectedDish(dish)}>
-                  <div className="rec-img">
-                    {getBestThumbnail(dish) && <img src={getBestThumbnail(dish)} alt={dish.name} />}
-                    {dish.is_featured && <div className="featured-badge">Featured</div>}
-                  </div>
-                  <div className="rec-content">
-                    <h3 className="rec-title">{dish.name}</h3>
-                    <div className="rec-meta">
-                      <span className="dish-price">₹{getDisplayPrice(dish)}</span>
-                      {dish.average_rating > 0 && (
-                        <div className="dish-rating">
-                          <Star size={12} fill="#f59e0b" color="#f59e0b" />
-                          <span>{parseFloat(dish.average_rating).toFixed(1)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+          </section>
+
+          <section className="pm-m-details">
+            <div className="pm-m-details-scroll scroll-hide">
+              <div className="pm-m-detail-item">
+                <UtensilsCrossed size={20} />
+                <span>{restaurant.cuisine_type || 'Restaurant'}</span>
+              </div>
+              {restaurant.address && (
+                <div className="pm-m-detail-item">
+                  <MapPin size={20} />
+                  <span>{restaurant.address}</span>
                 </div>
+              )}
+              {restaurant.phone && (
+                <a className="pm-m-detail-item" href={`tel:${restaurant.phone}`}>
+                  <Phone size={20} />
+                  <span>Contact Us</span>
+                </a>
+              )}
+            </div>
+          </section>
+
+          <section className="pm-m-sticky-tools" ref={searchSectionRef} id="pm-m-search">
+            <div className="pm-m-search-wrap">
+              <Search size={20} className="pm-m-search-icon" aria-hidden />
+              <input
+                id="pm-m-search-input"
+                type="search"
+                className="pm-m-search-input"
+                placeholder="Search for dishes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => setMobileNav('search')}
+              />
+            </div>
+            <div className="pm-m-cats scroll-hide">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  className={`pm-m-cat ${activeCategory === cat ? 'is-active' : ''}`}
+                  onClick={() => setActiveCategory(cat)}
+                >
+                  {cat}
+                </button>
               ))}
             </div>
-          </div>
-        )}
+          </section>
 
-        {/* Most Loved Section */}
-        {recommendedDishes.length > 0 && activeCategory === 'All' && !searchQuery && (
-          <div className="recommendation-section">
-            <div className="section-header-ai">
-              <h2 className="section-title mb-0" style={{ borderBottom: 'none', paddingBottom: 0 }}>Most Loved</h2>
-              <span className="ai-badge"><Sparkles size={14} /> Popular Picks</span>
-            </div>
-            
-            <div className="recommendation-row scroll-hide">
-              {recommendedDishes.map(dish => (
-                <div key={dish.id} className="rec-card" onClick={() => setSelectedDish(dish)}>
-                  <div className="rec-img">
-                    {getBestThumbnail(dish) && <img src={getBestThumbnail(dish)} alt={dish.name} />}
-                    {dish.is_featured && <div className="featured-badge">Featured</div>}
-                  </div>
-                  <div className="rec-content">
-                    <h3 className="rec-title">{dish.name}</h3>
-                    <div className="rec-meta">
-                      <span className="dish-price">₹{getDisplayPrice(dish)}</span>
-                      {dish.average_rating > 0 && (
-                        <div className="dish-rating">
-                          <Star size={12} fill="#f59e0b" color="#f59e0b" />
-                          <span>{parseFloat(dish.average_rating).toFixed(1)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Main Dishes Grid */}
-        <div className="all-dishes-section">
-          <h2 className="section-title">
-            {searchQuery ? 'Search Results' : activeCategory}
-          </h2>
-          
-          {filteredDishes.length === 0 ? (
-            <div className="text-center text-muted" style={{ padding: '3rem 0' }}>
-              <p>No dishes found matching your criteria.</p>
-            </div>
-          ) : (
-            <div className="dish-list-grid">
-              {filteredDishes.map(dish => (
-                <div key={dish.id} className="dish-list-item" onClick={() => setSelectedDish(dish)}>
-                  <div className="dish-list-content">
-                    <div className="dish-list-header">
-                      <h3>{dish.name}</h3>
-                      <span className="dish-price">₹{getDisplayPrice(dish)}</span>
-                    </div>
-                    <p className="dish-list-desc">{dish.ai_description || dish.description || dish.short_description}</p>
-                    {renderTasteTags(dish)}
-                    <div className="dish-list-footer mt-2">
-                      {dish.average_rating > 0 && (
-                        <div className="dish-rating">
-                          <Star size={14} fill="#f59e0b" color="#f59e0b" />
-                          <span>{parseFloat(dish.average_rating).toFixed(1)} ({dish.total_reviews})</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {getBestThumbnail(dish) && (
-                    <div className="dish-list-img">
-                      <img src={getBestThumbnail(dish)} alt={dish.name} loading="lazy" />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+          {trendingForMobile.length > 0 && activeCategory === 'All' && !debouncedSearch && (
+            <section className="pm-m-section">
+              <div className="pm-m-section-head">
+                <h3>Trending Now</h3>
+                <button type="button" className="pm-m-link" onClick={() => setActiveCategory('All')}>
+                  View All
+                </button>
+              </div>
+              <div className="pm-m-trend-row scroll-hide">
+                {trendingForMobile.map((dish, i) => renderMobileTrendCard(dish, i))}
+              </div>
+            </section>
           )}
-        </div>
-      </div>
 
-      {tableBasket.length > 0 && (
-        <div
-          className="pm-floating-basket pm-view-mobile"
-          onClick={() => setIsBasketOpen(true)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && setIsBasketOpen(true)}
-        >
-          <ShoppingBag size={20} />
-          <span>View Table Order ({tableBasket.length})</span>
-        </div>
-      )}
+          <section className="pm-m-section pm-m-all">
+            <h3 className="pm-m-section-title">
+              {debouncedSearch ? 'Search Results' : 'All Dishes'}
+            </h3>
+            {filteredDishes.length === 0 ? (
+              <p className="pm-m-empty">No dishes found matching your criteria.</p>
+            ) : (
+              <div className="pm-m-dish-list">
+                {filteredDishes.map((dish) => renderMobileDishRow(dish))}
+              </div>
+            )}
+          </section>
+        </main>
+
+        <nav className="pm-m-bottom-nav" aria-label="Menu navigation">
+          <button
+            type="button"
+            className={`pm-m-nav-item ${mobileNav === 'home' ? 'is-active' : ''}`}
+            onClick={() => {
+              setMobileNav('home');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            <Home size={22} strokeWidth={mobileNav === 'home' ? 2.5 : 2} />
+            <span>Home</span>
+          </button>
+          <button
+            type="button"
+            className={`pm-m-nav-item ${mobileNav === 'search' ? 'is-active' : ''}`}
+            onClick={scrollToMobileSearch}
+          >
+            <Search size={22} strokeWidth={mobileNav === 'search' ? 2.5 : 2} />
+            <span>Search</span>
+          </button>
+          <button
+            type="button"
+            className={`pm-m-nav-item ${mobileNav === 'orders' ? 'is-active' : ''}`}
+            onClick={() => {
+              setMobileNav('orders');
+              setIsBasketOpen(true);
+            }}
+          >
+            <span className="pm-m-nav-icon-wrap">
+              <ShoppingBag size={22} strokeWidth={mobileNav === 'orders' ? 2.5 : 2} />
+              {tableBasket.length > 0 && (
+                <span className="pm-m-nav-badge">{tableBasket.length}</span>
+              )}
+            </span>
+            <span>Orders</span>
+          </button>
+         
+        </nav>
       </div>
 
       {/* ========== DESKTOP (reference layout, no navbar) ========== */}
