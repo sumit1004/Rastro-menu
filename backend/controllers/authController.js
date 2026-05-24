@@ -8,10 +8,41 @@ const {
   normalizeEmail,
   validateNewPassword,
 } = require('../utils/passwordReset');
-const { sendPasswordResetEmail, isEmailConfigured } = require('../services/emailService');
+const { sendPasswordResetEmail } = require('../services/emailService');
 
 const GENERIC_RESET_MESSAGE =
   'If an account exists with that email, a reset link has been sent.';
+
+const isDevMode = () => process.env.NODE_ENV !== 'production';
+
+const dispatchPasswordResetEmail = async (user) => {
+  const { raw, hash, expires } = generateResetToken();
+
+  await pool.query(
+    `UPDATE users SET reset_password_token = ?, reset_password_expires = ? WHERE id = ?`,
+    [hash, expires, user.id]
+  );
+
+  const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+  const resetUrl = `${frontendBase}/reset-password/${raw}`;
+
+  const mailResult = await sendPasswordResetEmail({
+    to: user.email,
+    name: user.name,
+    resetUrl,
+  });
+
+  if (!mailResult.sent) {
+    console.error('[forgotPassword] Email not delivered:', mailResult.reason, mailResult.error || '');
+    if (isDevMode()) {
+      console.info('[forgotPassword] Dev reset URL (use if inbox empty):', resetUrl);
+    }
+  } else {
+    console.info('[forgotPassword] Reset email sent to:', user.email.replace(/(.{2}).*(@.*)/, '$1***$2'));
+  }
+
+  return { resetUrl, mailResult };
+};
 
 // Generate JWT Token
 const generateToken = (id, role) => {
@@ -134,36 +165,17 @@ const forgotPassword = async (req, res) => {
       [email]
     );
 
+    const payload = { message: GENERIC_RESET_MESSAGE };
+
     if (users.length > 0) {
-      const user = users[0];
-      const { raw, hash, expires } = generateResetToken();
-
-      await pool.query(
-        `UPDATE users SET reset_password_token = ?, reset_password_expires = ? WHERE id = ?`,
-        [hash, expires, user.id]
-      );
-
-      const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
-      const resetUrl = `${frontendBase}/reset-password/${raw}`;
-
-      try {
-        const result = await sendPasswordResetEmail({
-          to: user.email,
-          name: user.name,
-          resetUrl,
-        });
-        if (!result.sent && process.env.NODE_ENV !== 'production') {
-          console.info('[forgotPassword] Dev reset URL:', resetUrl);
-        }
-      } catch (mailErr) {
-        console.error('[forgotPassword] Email send failed:', mailErr.message);
-        if (!isEmailConfigured() && process.env.NODE_ENV !== 'production') {
-          console.info('[forgotPassword] Dev reset URL (SMTP unavailable):', resetUrl);
-        }
+      const { resetUrl, mailResult } = await dispatchPasswordResetEmail(users[0]);
+      if (isDevMode()) {
+        payload.devResetUrl = resetUrl;
+        payload.emailDispatched = Boolean(mailResult.sent);
       }
     }
 
-    res.json({ message: GENERIC_RESET_MESSAGE });
+    res.json(payload);
   } catch (error) {
     console.error('forgotPassword error:', error);
     res.status(500).json({ message: 'Unable to process request. Please try again later.' });

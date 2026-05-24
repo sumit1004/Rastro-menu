@@ -1,25 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, ArrowRight, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Mail, ArrowRight, ArrowLeft, CheckCircle, RefreshCw, Copy, Check } from 'lucide-react';
 import api from '../services/api';
 import AuthLayout, { AuthBrand } from './AuthLayout';
 import AuthField from './AuthField';
 import './Auth.css';
 
+const maskEmail = (value) => {
+  const email = value.trim();
+  const at = email.indexOf('@');
+  if (at < 1) return email;
+  const user = email.slice(0, at);
+  const domain = email.slice(at);
+  if (user.length <= 2) return `${user[0]}***${domain}`;
+  return `${user.slice(0, 2)}***${domain}`;
+};
+
 const ForgotPassword = () => {
   const [email, setEmail] = useState('');
+  const [lastSubmittedEmail, setLastSubmittedEmail] = useState('');
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [devResetUrl, setDevResetUrl] = useState(null);
+  const [emailDispatched, setEmailDispatched] = useState(null);
+  const [copied, setCopied] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (resendCooldown <= 0) return undefined;
+    const timer = setInterval(() => {
+      setResendCooldown((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const submitForgot = async (emailValue, { isResend = false } = {}) => {
+    const trimmed = emailValue.trim();
+    if (!trimmed) {
+      setError('Please enter your email address.');
+      return;
+    }
+
     setError('');
-    setLoading(true);
+    setInfo('');
+    if (isResend) setResendLoading(true);
+    else setLoading(true);
 
     try {
-      await api.post('/auth/forgot-password', { email: email.trim() });
+      const { data } = await api.post('/auth/forgot-password', { email: trimmed });
+      setLastSubmittedEmail(trimmed);
       setSubmitted(true);
+      setResendCooldown(60);
+
+      if (import.meta.env.DEV) {
+        setDevResetUrl(data.devResetUrl || null);
+        setEmailDispatched(data.emailDispatched ?? null);
+      }
+
+      if (isResend) {
+        setInfo('We sent another reset link if an account exists for that email.');
+      }
     } catch (err) {
       if (err.response?.status === 429) {
         setError(err.response?.data?.message || 'Too many requests. Please wait and try again.');
@@ -28,6 +71,38 @@ const ForgotPassword = () => {
       }
     } finally {
       setLoading(false);
+      setResendLoading(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    submitForgot(email);
+  };
+
+  const handleResend = () => {
+    if (resendCooldown > 0 || resendLoading) return;
+    submitForgot(lastSubmittedEmail || email, { isResend: true });
+  };
+
+  const handleTryDifferentEmail = () => {
+    setSubmitted(false);
+    setError('');
+    setInfo('');
+    setDevResetUrl(null);
+    setEmailDispatched(null);
+    setResendCooldown(0);
+    setEmail(lastSubmittedEmail || email);
+  };
+
+  const handleCopyDevLink = async () => {
+    if (!devResetUrl) return;
+    try {
+      await navigator.clipboard.writeText(devResetUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError('Could not copy link. Select and copy it manually.');
     }
   };
 
@@ -45,15 +120,73 @@ const ForgotPassword = () => {
             <CheckCircle size={48} className="auth-success-icon" aria-hidden />
             <h3>Check your inbox</h3>
             <p>
-              If an account exists with that email, a reset link has been sent. The link expires in
-              15 minutes.
+              If an account exists for <strong>{maskEmail(lastSubmittedEmail)}</strong>, a reset link
+              has been sent. The link expires in 15 minutes.
             </p>
+
+            {import.meta.env.DEV && emailDispatched === false && (
+              <div className="auth-dev-panel" role="status">
+                <p>
+                  <strong>Dev:</strong> SMTP could not send the email. Use the link below to test
+                  reset, then fix <code>SMTP_PASSWORD</code> in <code>backend/.env</code> (Gmail App
+                  Password, 16 characters).
+                </p>
+                {devResetUrl && (
+                  <div className="auth-dev-link-row">
+                    <input type="text" readOnly value={devResetUrl} className="auth-dev-link-input" />
+                    <button type="button" className="auth-dev-copy-btn" onClick={handleCopyDevLink}>
+                      {copied ? <Check size={16} /> : <Copy size={16} />}
+                      {copied ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                )}
+                <a href={devResetUrl} className="auth-dev-open-link">
+                  Open reset page
+                </a>
+              </div>
+            )}
+
+            {import.meta.env.DEV && emailDispatched === true && devResetUrl && (
+              <p className="auth-success-hint">
+                Dev: email sent via SMTP. Backup link available in server logs if needed.
+              </p>
+            )}
+
             <p className="auth-success-hint">
-              Didn&apos;t receive it? Check spam or try again with the correct email.
+              Didn&apos;t receive it? Check your spam folder, wait a minute, then resend.
             </p>
-            <Link to="/login" className="auth-submit auth-success-btn">
+
+            {info && <div className="auth-info-banner">{info}</div>}
+            {error && (
+              <div className="auth-error" role="alert">
+                {error}
+              </div>
+            )}
+
+            <div className="auth-success-actions">
+              <button
+                type="button"
+                className="auth-submit"
+                onClick={handleResend}
+                disabled={resendLoading || resendCooldown > 0}
+              >
+                {resendLoading ? (
+                  <span className="auth-submit-spinner" aria-label="Sending" />
+                ) : (
+                  <>
+                    <RefreshCw size={18} aria-hidden />
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend reset link'}
+                  </>
+                )}
+              </button>
+              <button type="button" className="auth-secondary-btn" onClick={handleTryDifferentEmail}>
+                Try a different email
+              </button>
+            </div>
+
+            <Link to="/login" className="auth-inline-link auth-success-back">
+              <ArrowLeft size={14} aria-hidden />
               Back to Login
-              <ArrowRight size={20} strokeWidth={2.5} aria-hidden />
             </Link>
           </div>
         ) : (

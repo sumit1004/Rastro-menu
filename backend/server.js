@@ -127,6 +127,20 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!', details: err.message });
 });
 
-server.listen(PORT, () => {
+const { verifySmtpConnection, isEmailConfigured } = require('./services/emailService');
+
+server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+
+  if (isEmailConfigured()) {
+    const smtp = await verifySmtpConnection();
+    if (smtp.ok) {
+      console.log('[email] SMTP ready — password reset emails can be sent.');
+    } else {
+      console.error('[email] SMTP verification failed:', smtp.error);
+      console.error('[email] Run: node scripts/test-smtp.js — fix SMTP_PASSWORD (Gmail App Password, 16 chars).');
+    }
+  } else {
+    console.warn('[email] SMTP not configured. Password reset links will only log to console in development.');
+  }
 });
