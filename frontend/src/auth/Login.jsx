@@ -94,9 +94,9 @@ const Login = () => {
               />
               Remember me
             </label>
-            <button type="button" className="auth-link">
+            <Link to="/forgot-password" className="auth-link">
               Forgot Password?
-            </button>
+            </Link>
           </div>
 
           <button type="submit" className="auth-submit" disabled={loading}>

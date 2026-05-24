@@ -9,6 +9,8 @@ import Loader from './components/Loader';
 import LandingPage from './pages/Landing/LandingPage';
 import Login from './auth/Login';
 import Signup from './auth/Signup';
+import ForgotPassword from './auth/ForgotPassword';
+import ResetPassword from './auth/ResetPassword';
 import DashboardLayout from './dashboard/DashboardLayout';
 import DashboardOverview from './dashboard/DashboardOverview';
 import RestaurantProfile from './dashboard/RestaurantProfile';
@@ -47,6 +49,8 @@ const AppRoutes = () => {
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
       <Route path="/menu/:slug" element={<PublicMenu />} />
 
       {/* Legal Routes */}

@@ -1,6 +1,17 @@
 const pool = require('../config/db');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const {
+  generateResetToken,
+  hashResetToken,
+  isValidEmail,
+  normalizeEmail,
+  validateNewPassword,
+} = require('../utils/passwordReset');
+const { sendPasswordResetEmail, isEmailConfigured } = require('../services/emailService');
+
+const GENERIC_RESET_MESSAGE =
+  'If an account exists with that email, a reset link has been sent.';
 
 // Generate JWT Token
 const generateToken = (id, role) => {
@@ -108,8 +119,143 @@ const getMe = async (req, res) => {
   }
 };
 
+// @desc    Request password reset email
+// @route   POST /api/auth/forgot-password
+const forgotPassword = async (req, res) => {
+  try {
+    const email = normalizeEmail(String(req.body.email || ''));
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: 'Please provide a valid email address.' });
+    }
+
+    const [users] = await pool.query(
+      'SELECT id, name, email FROM users WHERE email = ? LIMIT 1',
+      [email]
+    );
+
+    if (users.length > 0) {
+      const user = users[0];
+      const { raw, hash, expires } = generateResetToken();
+
+      await pool.query(
+        `UPDATE users SET reset_password_token = ?, reset_password_expires = ? WHERE id = ?`,
+        [hash, expires, user.id]
+      );
+
+      const frontendBase = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '');
+      const resetUrl = `${frontendBase}/reset-password/${raw}`;
+
+      try {
+        const result = await sendPasswordResetEmail({
+          to: user.email,
+          name: user.name,
+          resetUrl,
+        });
+        if (!result.sent && process.env.NODE_ENV !== 'production') {
+          console.info('[forgotPassword] Dev reset URL:', resetUrl);
+        }
+      } catch (mailErr) {
+        console.error('[forgotPassword] Email send failed:', mailErr.message);
+        if (!isEmailConfigured() && process.env.NODE_ENV !== 'production') {
+          console.info('[forgotPassword] Dev reset URL (SMTP unavailable):', resetUrl);
+        }
+      }
+    }
+
+    res.json({ message: GENERIC_RESET_MESSAGE });
+  } catch (error) {
+    console.error('forgotPassword error:', error);
+    res.status(500).json({ message: 'Unable to process request. Please try again later.' });
+  }
+};
+
+// @desc    Verify reset token is valid
+// @route   GET /api/auth/reset-password/verify/:token
+const verifyResetToken = async (req, res) => {
+  try {
+    const rawToken = String(req.params.token || '').trim();
+    if (!rawToken || rawToken.length < 32) {
+      return res.status(400).json({ valid: false, message: 'Invalid or expired reset link.' });
+    }
+
+    const tokenHash = hashResetToken(rawToken);
+    const [users] = await pool.query(
+      `SELECT id FROM users
+       WHERE reset_password_token = ?
+       AND reset_password_expires IS NOT NULL
+       AND reset_password_expires > NOW()
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({ valid: false, message: 'Invalid or expired reset link.' });
+    }
+
+    res.json({ valid: true });
+  } catch (error) {
+    console.error('verifyResetToken error:', error);
+    res.status(500).json({ valid: false, message: 'Unable to verify reset link.' });
+  }
+};
+
+// @desc    Reset password with token
+// @route   POST /api/auth/reset-password
+const resetPassword = async (req, res) => {
+  try {
+    const rawToken = String(req.body.token || '').trim();
+    const password = String(req.body.password || '');
+
+    if (!rawToken || rawToken.length < 32) {
+      return res.status(400).json({ message: 'Invalid or expired reset link.' });
+    }
+
+    const passwordError = validateNewPassword(password);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
+    }
+
+    const tokenHash = hashResetToken(rawToken);
+    const [users] = await pool.query(
+      `SELECT id, reset_password_token, reset_password_expires
+       FROM users
+       WHERE reset_password_token = ?
+       AND reset_password_expires IS NOT NULL
+       AND reset_password_expires > NOW()
+       LIMIT 1`,
+      [tokenHash]
+    );
+
+    if (users.length === 0) {
+      return res.status(400).json({ message: 'Invalid or expired reset link.' });
+    }
+
+    const user = users[0];
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    await pool.query(
+      `UPDATE users
+       SET password = ?,
+           reset_password_token = NULL,
+           reset_password_expires = NULL
+       WHERE id = ?`,
+      [hashedPassword, user.id]
+    );
+
+    res.json({ message: 'Password updated successfully. You can now log in.' });
+  } catch (error) {
+    console.error('resetPassword error:', error);
+    res.status(500).json({ message: 'Unable to reset password. Please try again.' });
+  }
+};
+
 module.exports = {
   signup,
   login,
   getMe,
+  forgotPassword,
+  verifyResetToken,
+  resetPassword,
 };
