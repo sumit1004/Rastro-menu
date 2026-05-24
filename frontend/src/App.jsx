@@ -18,7 +18,6 @@ import AnalyticsOverview from './dashboard/AnalyticsOverview';
 import QRMenu from './dashboard/QRMenu';
 import PublicMenu from './menu/PublicMenu';
 import Settings from './dashboard/Settings';
-import PaymentHistory from './dashboard/PaymentHistory';
 import AdminDashboard from './admin/AdminDashboard';
 import Legal from './pages/Legal';
 import Orders from './dashboard/Orders';
@@ -72,7 +71,7 @@ const AppRoutes = () => {
         <Route path="analytics" element={<AnalyticsOverview />} />
         <Route path="qr-menu" element={<QRMenu />} />
         <Route path="settings" element={<Settings />} />
-        <Route path="billing" element={<PaymentHistory />} />
+        <Route path="billing" element={<Navigate to="/dashboard/settings" replace />} />
         <Route path="orders" element={<Orders />} />
       </Route>
 

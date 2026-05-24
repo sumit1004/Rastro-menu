@@ -366,10 +366,34 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .settings-page {
+    padding: 0;
+  }
+
   .settings-page-header { flex-direction: column; }
-  .settings-tabs { width: 100%; }
-  .settings-tab { flex: 1; justify-content: center; }
+  .settings-upgrade-btn { width: 100%; justify-content: center; }
+
+  .settings-tabs {
+    width: 100%;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .settings-tab {
+    width: 100%;
+    justify-content: center;
+  }
+
   .s-plan-hero { flex-direction: column; align-items: flex-start; }
   .s-trial-banner { flex-direction: column; }
   .s-trial-upgrade-btn { width: 100%; text-align: center; }
+
+  .s-section {
+    padding: 1rem;
+    overflow: hidden;
+  }
+
+  .compare-wrap {
+    margin: 0 -0.25rem;
+  }
 }

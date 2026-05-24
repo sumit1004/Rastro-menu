@@ -69,36 +69,37 @@ const QRMenu = () => {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-        <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '1.5rem' }}>
+      <div className="qr-menu-layout">
+        <Card className="qr-menu-preview-card">
           <h3>Your Custom QR Code</h3>
-          <div style={{ padding: '1rem', background: 'white', borderRadius: '1rem', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
-            <QRCodeSVG 
+          <div className="qr-code-wrap">
+            <QRCodeSVG
               id="qr-code-svg"
-              value={menuUrl} 
-              size={256} 
+              value={menuUrl}
+              size={256}
               level="H"
               includeMargin={true}
               fgColor="#0f172a"
+              className="qr-code-svg"
             />
           </div>
-          <Button onClick={downloadQR} icon={<Download size={18} />}>
+          <Button onClick={downloadQR} icon={<Download size={18} />} className="qr-download-btn">
             Download PNG
           </Button>
         </Card>
 
-        <Card>
+        <Card className="qr-menu-info-card">
           <h3>How to use it?</h3>
-          <ul style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', color: 'var(--text-muted)' }}>
-            <li><strong>1. Download</strong> your QR code using the button on the left.</li>
+          <ul className="qr-menu-steps">
+            <li><strong>1. Download</strong> your QR code using the button above.</li>
             <li><strong>2. Print</strong> the QR code on your tables, menus, or posters.</li>
             <li><strong>3. Diners scan</strong> the code with their smartphone camera.</li>
             <li><strong>4. They view</strong> your beautiful digital menu instantly.</li>
           </ul>
 
-          <div style={{ marginTop: '2rem', padding: '1rem', backgroundColor: '#f1f5f9', borderRadius: '0.5rem' }}>
-            <p style={{ fontSize: '0.875rem', fontWeight: '500', marginBottom: '0.5rem' }}>Direct Menu URL:</p>
-            <a href={menuUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary-color)', wordBreak: 'break-all' }}>
+          <div className="qr-menu-url-box">
+            <p>Direct Menu URL:</p>
+            <a href={menuUrl} target="_blank" rel="noreferrer">
               {menuUrl}
             </a>
           </div>

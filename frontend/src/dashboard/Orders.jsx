@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, ShoppingBag, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, ShoppingBag, ChevronDown, ChevronUp, Calendar } from 'lucide-react';
 import api from '../services/api';
 import Card from '../components/Card';
 import Loader from '../components/Loader';
+import './Dashboard.css';
 
 const formatDateTime = (dateStr) => {
   const d = new Date(dateStr);
@@ -10,6 +11,16 @@ const formatDateTime = (dateStr) => {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const formatDateShort = (dateStr) => {
+  const d = new Date(dateStr);
+  return d.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -29,88 +40,50 @@ const OrderRow = ({ order }) => {
   const total = order.items?.reduce((sum, item) => sum + (item.item_price * item.quantity), 0) || 0;
 
   return (
-    <div style={{ border: '1px solid #e2e8f0', borderRadius: '0.5rem', overflow: 'hidden', marginBottom: '0.75rem' }}>
-      <div
+    <article className="order-history-row">
+      <button
+        type="button"
+        className="order-history-row-head"
         onClick={() => setExpanded(!expanded)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem',
-          padding: '1rem',
-          backgroundColor: 'white',
-          cursor: 'pointer',
-          flexWrap: 'wrap',
-        }}
+        aria-expanded={expanded}
       >
-        <span
-          style={{
-            padding: '0.25rem 0.625rem',
-            borderRadius: '0.25rem',
-            fontSize: '0.75rem',
-            fontWeight: 'bold',
-            backgroundColor: style.bg,
-            color: style.text,
-            textTransform: 'uppercase',
-          }}
-        >
+        <span className="order-history-status" style={{ backgroundColor: style.bg, color: style.text }}>
           {order.order_status}
         </span>
-        <div style={{ flex: 1, minWidth: '120px' }}>
-          <p style={{ margin: 0, fontWeight: 'bold', fontSize: '0.95rem' }}>Table {order.table_number}</p>
-          <p style={{ margin: 0, fontSize: '0.75rem', color: '#64748b' }}>{order.customer_mobile}</p>
+        <div className="order-history-main">
+          <p className="order-history-table">Table {order.table_number}</p>
+          <p className="order-history-meta">
+            <span>{order.customer_mobile}</span>
+            <span className="order-history-dot">·</span>
+            <span className="order-history-time">
+              <Clock size={11} aria-hidden />
+              <span className="order-history-time-full">{formatDateTime(order.created_at)}</span>
+              <span className="order-history-time-short">{formatDateShort(order.created_at)}</span>
+            </span>
+          </p>
         </div>
-        <div style={{ flex: 1, minWidth: '160px', color: '#64748b', fontSize: '0.8rem' }}>
-          <Clock size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '0.25rem' }} />
-          {formatDateTime(order.created_at)}
-        </div>
-        <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <span style={{ fontWeight: 'bold', fontSize: '1rem', color: '#0f172a' }}>Rs.{total}</span>
+        <div className="order-history-end">
+          <span className="order-history-amount">₹{total}</span>
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </div>
-      </div>
+      </button>
       {expanded && order.items && (
-        <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem 1rem', borderTop: '1px solid #e2e8f0' }}>
-          <h5 style={{ margin: 0, marginBottom: '0.5rem', fontSize: '0.8rem', textTransform: 'uppercase', color: '#64748b' }}>
-            Items
-          </h5>
+        <div className="order-history-details">
+          <h5>Items</h5>
           {order.items.map((item, idx) => (
-            <div
-              key={idx}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: '0.875rem',
-                padding: '0.3rem 0',
-                borderBottom: idx < order.items.length - 1 ? '1px dashed #e2e8f0' : 'none',
-              }}
-            >
+            <div key={idx} className="order-history-item">
               <span>
-                {item.quantity}x <strong>{item.dish_name}</strong>
-                <span style={{ color: '#94a3b8', marginLeft: '0.5rem', fontSize: '0.75rem' }}>
-                  ({item.plate_type} plate)
-                </span>
-                {item.item_note && (
-                  <span
-                    style={{
-                      display: 'block',
-                      fontSize: '0.75rem',
-                      color: '#64748b',
-                      fontStyle: 'italic',
-                    }}
-                  >
-                    Note: {item.item_note}
-                  </span>
-                )}
+                {item.quantity}× <strong>{item.dish_name}</strong>
+                <span className="order-history-plate">({item.plate_type})</span>
+                {item.item_note && <span className="order-history-note">Note: {item.item_note}</span>}
               </span>
-              <span style={{ fontWeight: 500 }}>Rs.{item.item_price * item.quantity}</span>
+              <span>₹{item.item_price * item.quantity}</span>
             </div>
           ))}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.5rem', fontWeight: 'bold' }}>
-            Total: Rs.{total}
-          </div>
+          <div className="order-history-total">Total: ₹{total}</div>
         </div>
       )}
-    </div>
+    </article>
   );
 };
 
@@ -124,7 +97,7 @@ const Orders = () => {
   const DATE_FILTERS = [
     { label: 'Today', value: 'today' },
     { label: 'Yesterday', value: 'yesterday' },
-    { label: 'All Time', value: '' },
+    { label: 'All', value: '' },
   ];
 
   const btnStyle = (active, primary) => ({
@@ -174,110 +147,191 @@ const Orders = () => {
   }, [restaurantId, filter, customDate]);
 
   const filteredOrders = orders;
+  const completedCount = filteredOrders.filter((o) =>
+    ['completed', 'delivered'].includes(o.order_status)
+  ).length;
+  const cancelledCount = filteredOrders.filter((o) => o.order_status === 'cancelled').length;
   const totalRevenue = filteredOrders
     .filter((o) => ['completed', 'delivered'].includes(o.order_status))
     .reduce((sum, o) => sum + (o.items?.reduce((s, item) => s + item.item_price * item.quantity, 0) || 0), 0);
 
+  const applyFilter = (value) => {
+    setFilter(value);
+    setCustomDate('');
+  };
+
+  const mobileStats = [
+    { label: 'Total', value: filteredOrders.length, tone: 'default' },
+    { label: 'Done', value: completedCount, tone: 'success' },
+    { label: 'Revenue', value: `₹${totalRevenue}`, tone: 'info' },
+    { label: 'Cancelled', value: cancelledCount, tone: 'danger' },
+  ];
+
   return (
-    <div>
-      <div className="dashboard-page-header">
+    <div className="orders-page">
+      <header className="dashboard-page-header orders-page-header">
         <div>
           <h2>Orders History</h2>
-          <p className="text-muted">View and track all orders placed at your restaurant.</p>
+          <p className="text-muted orders-page-subtitle">View and track all orders placed at your restaurant.</p>
         </div>
+      </header>
+
+      {/* Mobile: compact toolbar then list first */}
+      <div className="orders-mobile-shell">
+        <div className="orders-mobile-toolbar">
+          <div className="orders-stat-strip" role="group" aria-label="Order summary">
+            {mobileStats.map((s) => (
+              <div key={s.label} className={`orders-stat-pill orders-stat-pill--${s.tone}`}>
+                <span className="orders-stat-pill-value">{s.value}</span>
+                <span className="orders-stat-pill-label">{s.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="orders-filter-scroll">
+            <div className="orders-filter-pills">
+              {DATE_FILTERS.map((f) => (
+                <button
+                  key={f.value || 'all'}
+                  type="button"
+                  className={`orders-filter-pill ${filter === f.value ? 'active' : ''}`}
+                  onClick={() => applyFilter(f.value)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+            <label className={`orders-date-pill ${filter === 'custom' ? 'active' : ''}`}>
+              <Calendar size={14} aria-hidden />
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => {
+                  setCustomDate(e.target.value);
+                  if (e.target.value) setFilter('custom');
+                }}
+                aria-label="Filter by custom date"
+              />
+            </label>
+          </div>
+        </div>
+
+        <section className="orders-list-section orders-list-section--mobile">
+          <div className="orders-list-head">
+            <h3>Orders</h3>
+            <span className="orders-result-badge">
+              {filteredOrders.length} result{filteredOrders.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          {loading ? (
+            <Loader />
+          ) : filteredOrders.length === 0 ? (
+            <div className="orders-empty">
+              <ShoppingBag size={36} strokeWidth={1.5} />
+              <p>No orders found for the selected filters.</p>
+            </div>
+          ) : (
+            <div className="orders-list-stack">
+              {filteredOrders.map((order) => (
+                <OrderRow key={order.id} order={order} />
+              ))}
+            </div>
+          )}
+        </section>
       </div>
 
-      {/* Stats Grid */}
-      <div className="stats-grid" style={{ marginBottom: '1.5rem', display: 'grid', gap: '1rem', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-        <Card className="stat-card">
-          <div className="stat-icon"><ShoppingBag size={24} /></div>
-          <div className="stat-info">
-            <h4>Total Orders</h4>
-            <p>{filteredOrders.length}</p>
+      {/* Desktop: original layout */}
+      <div className="orders-desktop-shell">
+        <div className="stats-grid stats-grid-4">
+          <Card className="stat-card">
+            <div className="stat-icon"><ShoppingBag size={24} /></div>
+            <div className="stat-info">
+              <h4>Total Orders</h4>
+              <p>{filteredOrders.length}</p>
+            </div>
+          </Card>
+          <Card className="stat-card" style={{ backgroundColor: '#dcfce7', border: '1px solid #86efac' }}>
+            <div className="stat-icon" style={{ backgroundColor: '#bbf7d0', color: '#166534' }}>
+              <ShoppingBag size={24} />
+            </div>
+            <div className="stat-info">
+              <h4 style={{ color: '#166534' }}>Completed</h4>
+              <p style={{ color: '#166534' }}>{completedCount}</p>
+            </div>
+          </Card>
+          <Card className="stat-card" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
+            <div className="stat-icon" style={{ backgroundColor: '#dbeafe', color: '#1e40af' }}>
+              <ShoppingBag size={24} />
+            </div>
+            <div className="stat-info">
+              <h4 style={{ color: '#1e40af' }}>Revenue</h4>
+              <p style={{ color: '#1e40af' }}>Rs.{totalRevenue}</p>
+            </div>
+          </Card>
+          <Card className="stat-card" style={{ backgroundColor: '#fee2e2', border: '1px solid #fca5a5' }}>
+            <div className="stat-icon" style={{ backgroundColor: '#fecaca', color: '#991b1b' }}>
+              <ShoppingBag size={24} />
+            </div>
+            <div className="stat-info">
+              <h4 style={{ color: '#991b1b' }}>Cancelled</h4>
+              <p style={{ color: '#991b1b' }}>{cancelledCount}</p>
+            </div>
+          </Card>
+        </div>
+
+        <Card className="orders-filter-card">
+          <div className="order-filters-row" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            {DATE_FILTERS.map((f) => (
+              <button
+                key={f.value || 'all'}
+                type="button"
+                onClick={() => applyFilter(f.value)}
+                style={btnStyle(filter === f.value, true)}
+              >
+                {f.label === 'All' ? 'All Time' : f.label}
+              </button>
+            ))}
+            <div className="order-date-filter" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#64748b' }}>Custom Date:</span>
+              <input
+                type="date"
+                value={customDate}
+                onChange={(e) => {
+                  setCustomDate(e.target.value);
+                  if (e.target.value) setFilter('custom');
+                }}
+                style={{
+                  padding: '0.4rem 0.5rem',
+                  borderRadius: '0.5rem',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.875rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              />
+            </div>
           </div>
         </Card>
-        <Card className="stat-card" style={{ backgroundColor: '#dcfce7', border: '1px solid #86efac' }}>
-          <div className="stat-icon" style={{ backgroundColor: '#bbf7d0', color: '#166534' }}>
-            <ShoppingBag size={24} />
+
+        <Card className="orders-list-section">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0 }}>Orders</h3>
+            <span className="orders-result-badge">
+              {filteredOrders.length} result{filteredOrders.length !== 1 ? 's' : ''}
+            </span>
           </div>
-          <div className="stat-info">
-            <h4 style={{ color: '#166534' }}>Completed</h4>
-            <p style={{ color: '#166534' }}>{filteredOrders.filter((o) => ['completed', 'delivered'].includes(o.order_status)).length}</p>
-          </div>
-        </Card>
-        <Card className="stat-card" style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe' }}>
-          <div className="stat-icon" style={{ backgroundColor: '#dbeafe', color: '#1e40af' }}>
-            <ShoppingBag size={24} />
-          </div>
-          <div className="stat-info">
-            <h4 style={{ color: '#1e40af' }}>Revenue</h4>
-            <p style={{ color: '#1e40af' }}>Rs.{totalRevenue}</p>
-          </div>
-        </Card>
-        <Card className="stat-card" style={{ backgroundColor: '#fee2e2', border: '1px solid #fca5a5' }}>
-          <div className="stat-icon" style={{ backgroundColor: '#fecaca', color: '#991b1b' }}>
-            <ShoppingBag size={24} />
-          </div>
-          <div className="stat-info">
-            <h4 style={{ color: '#991b1b' }}>Cancelled</h4>
-            <p style={{ color: '#991b1b' }}>{filteredOrders.filter((o) => o.order_status === 'cancelled').length}</p>
-          </div>
+          {loading ? (
+            <Loader />
+          ) : filteredOrders.length === 0 ? (
+            <div className="orders-empty orders-empty--desktop">
+              <ShoppingBag size={40} style={{ opacity: 0.4 }} />
+              <p>No orders found for the selected filters.</p>
+            </div>
+          ) : (
+            filteredOrders.map((order) => <OrderRow key={order.id} order={order} />)
+          )}
         </Card>
       </div>
-
-      {/* Filters */}
-      <Card style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          {DATE_FILTERS.map((f) => (
-            <button
-              key={f.value}
-              onClick={() => { setFilter(f.value); setCustomDate(''); }}
-              style={btnStyle(filter === f.value, true)}
-            >
-              {f.label}
-            </button>
-          ))}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#64748b' }}>Custom Date:</span>
-            <input 
-              type="date" 
-              value={customDate}
-              onChange={(e) => {
-                setCustomDate(e.target.value);
-                if (e.target.value) setFilter('custom');
-              }}
-              style={{
-                padding: '0.4rem 0.5rem',
-                borderRadius: '0.5rem',
-                border: '1px solid #cbd5e1',
-                fontSize: '0.875rem',
-                outline: 'none',
-                cursor: 'pointer'
-              }}
-            />
-          </div>
-        </div>
-      </Card>
-
-      {/* Orders List */}
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0 }}>Orders</h3>
-          <span style={{ fontSize: '0.8rem', color: '#94a3b8', background: '#f1f5f9', padding: '2px 10px', borderRadius: '99px' }}>
-            {filteredOrders.length} result{filteredOrders.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        {loading ? (
-          <Loader />
-        ) : filteredOrders.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem 0', color: '#94a3b8' }}>
-            <ShoppingBag size={40} style={{ margin: '0 auto 1rem', display: 'block', opacity: 0.4 }} />
-            <p style={{ margin: 0 }}>No orders found for the selected filters.</p>
-          </div>
-        ) : (
-          filteredOrders.map((order) => <OrderRow key={order.id} order={order} />)
-        )}
-      </Card>
     </div>
   );
 };

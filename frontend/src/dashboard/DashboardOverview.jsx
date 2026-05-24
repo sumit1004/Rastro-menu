@@ -142,7 +142,7 @@ const DashboardOverview = () => {
         </div>
       </div>
 
-      <div className="stats-grid">
+      <div className="stats-grid stats-grid-6">
         <Card className="stat-card">
           <div className="stat-icon"><Utensils size={24} /></div>
           <div className="stat-info">
@@ -204,11 +204,11 @@ const DashboardOverview = () => {
             <p style={{ margin: 0 }}>No active orders right now.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1rem' }}>
+          <div className="live-orders-grid">
             {liveOrders.map(order => {
                const statusStyle = getStatusColor(order.order_status);
                return (
-                 <div key={order.id} style={{ border: '1px solid #e2e8f0', borderRadius: '0.5rem', padding: '1rem', backgroundColor: '#f8fafc' }}>
+                 <div key={order.id} className="live-order-card">
                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
                      <div>
                        <h4 style={{ margin: '0 0 0.25rem 0' }}>Table {order.table_number}</h4>
@@ -234,7 +234,7 @@ const DashboardOverview = () => {
                      <span>₹{Number(order.total_amount) ? order.total_amount : order.items?.reduce((s, item) => s + item.item_price * item.quantity, 0)}</span>
                    </div>
                    
-                   <div style={{ display: 'flex', gap: '0.5rem' }}>
+                   <div className="live-order-actions">
                      {order.order_status === 'pending' && (
                        <Button style={{ flex: 1, padding: '0.5rem' }} onClick={() => handleUpdateOrderStatus(order.id, 'accepted')}>Accept</Button>
                      )}

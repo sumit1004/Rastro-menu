@@ -48,19 +48,19 @@ const AnalyticsOverview = () => {
 
   return (
     <div className="analytics-container fade-in">
-      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="dashboard-page-header analytics-page-header">
         <div>
-          <h2 style={{ fontSize: '1.875rem', fontWeight: 'bold' }}>Intelligence & Analytics</h2>
+          <h2 style={{ fontSize: '1.7rem', fontWeight: 'bold' }}>Intelligence & Analytics</h2>
           <p style={{ color: 'var(--text-muted)' }}>Understand customer behavior and optimize your menu.</p>
         </div>
         
-        <div className="time-filters" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div className="time-filters analytics-time-filters">
           {['today', '7days', '30days', 'all'].map(filter => (
             <button
               key={filter}
               onClick={() => setTimeFilter(filter)}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.3rem 1rem',
                 borderRadius: '0.5rem',
                 border: '1px solid var(--border-color)',
                 background: timeFilter === filter ? 'var(--primary-color)' : 'white',
@@ -77,29 +77,31 @@ const AnalyticsOverview = () => {
       </div>
 
       {/* Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
-        <div style={{ padding: '1.5rem', background: 'white', borderRadius: '1rem', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: '#eff6ff', color: '#3b82f6', borderRadius: '0.5rem' }}><Eye size={24} /></div>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--text-muted)', fontWeight: '500', margin: 0 }}>Total Menu Views</h3>
+      <div className="analytics-metrics-grid">
+        <div className="analytics-metric-card">
+          <div className="analytics-metric-head">
+            <div className="analytics-metric-icon" style={{ background: '#eff6ff', color: '#3b82f6' }}><Eye size={24} /></div>
+            <h3>Total Menu Views</h3>
           </div>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{overview.totalViews}</p>
+          <p className="analytics-metric-value">{overview.totalViews}</p>
         </div>
-        
-        <div style={{ padding: '1.5rem', background: 'white', borderRadius: '1rem', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: '#f0fdf4', color: '#22c55e', borderRadius: '0.5rem' }}><Users size={24} /></div>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--text-muted)', fontWeight: '500', margin: 0 }}>Unique Visitors</h3>
+
+        <div className="analytics-metric-card">
+          <div className="analytics-metric-head">
+            <div className="analytics-metric-icon" style={{ background: '#f0fdf4', color: '#22c55e' }}><Users size={24} /></div>
+            <h3>Unique Visitors</h3>
           </div>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{overview.uniqueVisitors}</p>
+          <p className="analytics-metric-value">{overview.uniqueVisitors}</p>
         </div>
-        
-        <div style={{ padding: '1.5rem', background: 'white', borderRadius: '1rem', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            <div style={{ padding: '0.75rem', background: '#fef3c7', color: '#f59e0b', borderRadius: '0.5rem' }}><Flame size={24} /></div>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--text-muted)', fontWeight: '500', margin: 0 }}>Trending Searches</h3>
+
+        <div className="analytics-metric-card">
+          <div className="analytics-metric-head">
+            <div className="analytics-metric-icon" style={{ background: '#fef3c7', color: '#f59e0b' }}><Flame size={24} /></div>
+            <h3>Trending Searches</h3>
           </div>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: 0 }}>{topSearches.length > 0 ? topSearches[0].search_query : 'N/A'}</p>
+          <p className="analytics-metric-value analytics-metric-value--truncate">
+            {topSearches.length > 0 ? topSearches[0].search_query : 'N/A'}
+          </p>
         </div>
       </div>
 
@@ -137,9 +139,9 @@ const AnalyticsOverview = () => {
 
       {/* Main Charts Area */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem', marginBottom: '2.5rem' }}>
-        <div style={{ padding: '1.5rem', background: 'white', borderRadius: '1rem', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div className="analytics-chart-panel" style={{ padding: '1.5rem', background: 'white', borderRadius: '1rem', border: '1px solid var(--border-color)', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem' }}>Menu Traffic Overview</h3>
-          <div style={{ height: '300px', width: '100%' }}>
+          <div style={{ height: '300px', width: '100%', minWidth: 0 }}>
             {dailyViews && dailyViews.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyViews}>

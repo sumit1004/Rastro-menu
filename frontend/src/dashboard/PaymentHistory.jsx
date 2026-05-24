@@ -36,8 +36,17 @@ const PaymentHistory = ({ embedded = false }) => {
     }
   };
 
+  const formatDate = (dateStr) =>
+    new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
   return (
-    <div className={embedded ? '' : 'dashboard-content fade-in'}>
+    <div className={embedded ? 'payment-history-embedded' : 'dashboard-content fade-in'}>
       {!embedded && (
         <header className="dashboard-header">
           <h1>Payment History</h1>
@@ -52,35 +61,27 @@ const PaymentHistory = ({ embedded = false }) => {
           No payment history found.
         </Card>
       ) : (
-        <Card className="mt-4 overflow-hidden">
-          <div className="table-responsive">
-            <table className="w-full text-left" style={{ minWidth: '600px' }}>
+        <Card className="payment-history-card mt-4">
+          <div className="payment-history-table-wrap">
+            <table className="payment-history-table w-full text-left">
               <thead>
-                <tr className="border-b" style={{ borderColor: 'var(--border-color)', backgroundColor: '#f8fafc' }}>
-                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Date</th>
-                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Plan</th>
-                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Cycle</th>
-                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Amount</th>
-                  <th className="p-4 font-semibold text-gray-600 text-sm uppercase">Status</th>
+                <tr>
+                  <th>Date</th>
+                  <th>Plan</th>
+                  <th>Cycle</th>
+                  <th>Amount</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((payment, idx) => (
-                  <tr key={idx} className="border-b last:border-b-0 hover:bg-gray-50 transition-colors" style={{ borderColor: '#f1f5f9' }}>
-                    <td className="p-4 text-gray-800">
-                      {new Date(payment.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </td>
-                    <td className="p-4 font-medium" style={{ textTransform: 'capitalize' }}>{payment.plan_name}</td>
-                    <td className="p-4 text-gray-600" style={{ textTransform: 'capitalize' }}>{payment.billing_cycle}</td>
-                    <td className="p-4 font-semibold text-gray-900">₹{payment.amount}</td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2" style={{ textTransform: 'capitalize' }}>
+                  <tr key={idx}>
+                    <td>{formatDate(payment.created_at)}</td>
+                    <td className="capitalize">{payment.plan_name}</td>
+                    <td className="capitalize text-gray-600">{payment.billing_cycle}</td>
+                    <td className="font-semibold">₹{payment.amount}</td>
+                    <td>
+                      <div className="payment-status-cell capitalize">
                         {getStatusIcon(payment.payment_status)}
                         <span className={payment.payment_status === 'success' ? 'text-green-700 font-medium' : 'text-gray-600'}>
                           {payment.payment_status}
@@ -91,6 +92,36 @@ const PaymentHistory = ({ embedded = false }) => {
                 ))}
               </tbody>
             </table>
+          </div>
+
+          <div className="payment-history-cards">
+            {history.map((payment, idx) => (
+              <article key={idx} className="payment-history-mobile-card">
+                <div className="payment-mobile-row">
+                  <span className="payment-mobile-label">Date</span>
+                  <span className="payment-mobile-value">{formatDate(payment.created_at)}</span>
+                </div>
+                <div className="payment-mobile-row">
+                  <span className="payment-mobile-label">Plan</span>
+                  <span className="payment-mobile-value capitalize">{payment.plan_name}</span>
+                </div>
+                <div className="payment-mobile-row">
+                  <span className="payment-mobile-label">Cycle</span>
+                  <span className="payment-mobile-value capitalize">{payment.billing_cycle}</span>
+                </div>
+                <div className="payment-mobile-row">
+                  <span className="payment-mobile-label">Amount</span>
+                  <span className="payment-mobile-value payment-mobile-amount">₹{payment.amount}</span>
+                </div>
+                <div className="payment-mobile-row payment-mobile-status">
+                  <span className="payment-mobile-label">Status</span>
+                  <span className={`payment-mobile-value capitalize ${payment.payment_status === 'success' ? 'text-green-700' : ''}`}>
+                    {getStatusIcon(payment.payment_status)}
+                    {payment.payment_status}
+                  </span>
+                </div>
+              </article>
+            ))}
           </div>
         </Card>
       )}

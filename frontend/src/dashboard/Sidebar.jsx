@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import {
   LayoutDashboard, Store, Utensils, QrCode, Settings,
-  LogOut, MessageSquare, TrendingUp, CreditCard, Crown, Clock, ShoppingBag
+  LogOut, MessageSquare, TrendingUp, Crown, Clock, ShoppingBag
 } from 'lucide-react';
 import { AuthContext } from '../context/AuthContext';
 import { useSubscription } from '../context/SubscriptionContext';
@@ -31,7 +31,6 @@ const Sidebar = ({ isOpen, closeSidebar }) => {
     { name: 'Manage Reviews',    path: '/dashboard/reviews',   icon: <MessageSquare size={20} /> },
     { name: 'Orders',            path: '/dashboard/orders',    icon: <ShoppingBag size={20} /> },
     { name: 'QR Menu',           path: '/dashboard/qr-menu',  icon: <QrCode size={20} /> },
-    { name: 'Billing',           path: '/dashboard/billing',   icon: <CreditCard size={20} /> },
     { name: 'Settings',          path: '/dashboard/settings',  icon: <Settings size={20} /> },
   ];
 

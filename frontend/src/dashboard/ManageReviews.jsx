@@ -57,8 +57,8 @@ const ManageReviews = () => {
       {error && <div className="alert alert-error"><AlertCircle size={20} />{error}</div>}
 
       {/* Review Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '0.75rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="stats-grid stats-grid-2 review-stats-grid">
+        <div className="review-stat-card">
           <div style={{ padding: '1rem', backgroundColor: '#eef2ff', borderRadius: '50%', color: '#4f46e5' }}>
             <MessageSquare size={24} />
           </div>
@@ -68,7 +68,7 @@ const ManageReviews = () => {
           </div>
         </div>
         
-        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '0.75rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="review-stat-card">
           <div style={{ padding: '1rem', backgroundColor: '#fffbeb', borderRadius: '50%', color: '#f59e0b' }}>
             <Star size={24} />
           </div>
@@ -89,7 +89,7 @@ const ManageReviews = () => {
       ) : (
         <div style={{ display: 'grid', gap: '1rem' }}>
           {reviews.map(review => (
-            <div key={review.id} style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '0.75rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+            <div key={review.id} className="review-list-card">
               {review.dish_image ? (
                 <img src={getImageUrl(review.dish_image)} alt={review.dish_name} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '0.5rem' }} />
               ) : (
