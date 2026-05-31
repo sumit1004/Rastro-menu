@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Star, Clock, Flame, Info, Search, Sparkles, Camera, ShoppingBag, Plus, Minus, X,
-  UtensilsCrossed, MapPin, Phone, ScanLine, Layers, Menu, Home, User
+  UtensilsCrossed, MapPin, Phone, ScanLine, Layers, Menu, Home, User, Image as ImageIcon
 } from 'lucide-react';
 import api, { getImageUrl } from '../services/api';
 import analyticsService from '../services/analyticsService';
@@ -49,6 +49,10 @@ const PublicMenu = () => {
   const [hoveredStar, setHoveredStar] = useState(0);
 
   const [isARViewerOpen, setIsARViewerOpen] = useState(false);
+  
+  const [dishSuggestions, setDishSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [addingSuggestionId, setAddingSuggestionId] = useState(null);
 
   // --- ORDERING STATE ---
   const [tableBasket, setTableBasket] = useState([]);
@@ -160,6 +164,25 @@ const PublicMenu = () => {
       }
     };
     fetchReviews();
+  }, [selectedDish]);
+
+  useEffect(() => {
+    const fetchSuggestions = async () => {
+      if (!selectedDish) {
+        setDishSuggestions([]);
+        return;
+      }
+      setLoadingSuggestions(true);
+      try {
+        const res = await api.get(`/suggestions/dish/${selectedDish.id}`);
+        setDishSuggestions(res.data);
+      } catch (err) {
+        console.error("Failed to load suggestions", err);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    };
+    fetchSuggestions();
   }, [selectedDish]);
 
   const handleReviewSubmit = async (e) => {
@@ -1009,6 +1032,54 @@ const PublicMenu = () => {
               <div style={{ marginTop: '1.5rem', padding: '0.75rem', backgroundColor: '#f1f5f9', borderRadius: '0.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>
                 <Camera size={16} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '0.5rem' }} />
                 AR Preview Coming Soon
+              </div>
+            )}
+
+            {/* Complete Your Meal Section */}
+            {(dishSuggestions.length > 0 || loadingSuggestions) && (
+              <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-color)' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Sparkles size={20} className="text-primary" /> Complete Your Meal
+                </h3>
+                
+                {loadingSuggestions ? (
+                  <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }} className="scroll-hide">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} style={{ minWidth: '160px', height: '220px', backgroundColor: '#f1f5f9', borderRadius: '0.75rem', animation: 'pulse 2s infinite' }}></div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', margin: '0 -1.5rem', padding: '0 1.5rem 1rem 1.5rem' }} className="scroll-hide pm-pairings-scroll">
+                    {dishSuggestions.map(suggestion => (
+                      <div key={suggestion.id || suggestion.suggestion_id} style={{ minWidth: '160px', maxWidth: '160px', backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '0.75rem', overflow: 'hidden', display: 'flex', flexDirection: 'column', flexShrink: 0, transition: 'transform 0.2s' }} className="pm-pairing-card">
+                        <div style={{ height: '120px', backgroundColor: '#f8fafc', position: 'relative' }}>
+                          {getBestThumbnail(suggestion) ? (
+                            <img src={getBestThumbnail(suggestion)} alt={suggestion.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1' }}><ImageIcon size={32} /></div>
+                          )}
+                        </div>
+                        <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                          <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '0.875rem', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{suggestion.name}</h4>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 'bold', color: 'var(--primary-color)', marginBottom: 'auto' }}>₹{getDisplayPrice(suggestion)}</span>
+                          
+                          <Button 
+                            variant="outline" 
+                            style={{ width: '100%', padding: '0.5rem', marginTop: '0.5rem', fontSize: '0.875rem', height: 'auto', backgroundColor: addingSuggestionId === (suggestion.id || suggestion.suggestion_id) ? '#16a34a' : 'transparent', color: addingSuggestionId === (suggestion.id || suggestion.suggestion_id) ? 'white' : 'var(--primary-color)', borderColor: addingSuggestionId === (suggestion.id || suggestion.suggestion_id) ? '#16a34a' : 'var(--primary-color)' }}
+                            onClick={(e) => {
+                               e.stopPropagation();
+                               handleQuickAdd(suggestion, null);
+                               setAddingSuggestionId(suggestion.id || suggestion.suggestion_id);
+                               setTimeout(() => setAddingSuggestionId(null), 1500);
+                            }}
+                          >
+                            {addingSuggestionId === (suggestion.id || suggestion.suggestion_id) ? 'Added!' : 'Quick Add'}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

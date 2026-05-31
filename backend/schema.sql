@@ -48,6 +48,9 @@ CREATE TABLE IF NOT EXISTS dishes (
     total_reviews INT DEFAULT 0,
     is_available BOOLEAN DEFAULT TRUE,
     is_featured BOOLEAN DEFAULT FALSE,
+    dish_role VARCHAR(50) DEFAULT NULL,
+    cuisine_type VARCHAR(50) DEFAULT NULL,
+    meal_type VARCHAR(50) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
 );
@@ -99,3 +102,18 @@ CREATE TABLE IF NOT EXISTS search_logs (
 
 CREATE INDEX idx_search_logs_rest_created ON search_logs (restaurant_id, created_at);
 CREATE INDEX idx_search_logs_query ON search_logs (search_query);
+
+CREATE TABLE IF NOT EXISTS dish_suggestions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    restaurant_id INT NOT NULL,
+    dish_id INT NOT NULL,
+    suggested_dish_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
+    FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE,
+    FOREIGN KEY (suggested_dish_id) REFERENCES dishes(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_suggestion (dish_id, suggested_dish_id)
+);
+
+CREATE INDEX idx_dish_suggestions_dish_id ON dish_suggestions(dish_id);
+CREATE INDEX idx_dish_suggestions_restaurant_id ON dish_suggestions(restaurant_id);

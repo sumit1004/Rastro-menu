@@ -62,6 +62,10 @@ const addDish = async (req, res) => {
     const ai_description = req.body.ai_description || null;
     const taste_tags = req.body.taste_tags;
     const ai_category = req.body.ai_category || null;
+    
+    const dish_role = req.body.dish_role || null;
+    const cuisine_type = req.body.cuisine_type || null;
+    const meal_type = req.body.meal_type || null;
     const ar_enabled = req.body.ar_enabled === 'true' || req.body.ar_enabled === true;
     let ar_image_url = null;
     const ar_asset_type = req.body.ar_asset_type || 'pseudo-3d';
@@ -96,9 +100,9 @@ const addDish = async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO dishes 
-      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price]
+      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type]
     );
 
     res.status(201).json({ message: 'Dish added', id: result.insertId });
@@ -144,6 +148,10 @@ const updateDish = async (req, res) => {
     const ai_description = req.body.ai_description || null;
     const taste_tags = req.body.taste_tags;
     const ai_category = req.body.ai_category || null;
+    
+    const dish_role = req.body.dish_role || null;
+    const cuisine_type = req.body.cuisine_type || null;
+    const meal_type = req.body.meal_type || null;
     const ar_enabled = req.body.ar_enabled === 'true' || req.body.ar_enabled === true;
     let ar_image_url = existing[0].ar_image_url;
     const ar_asset_type = req.body.ar_asset_type || existing[0].ar_asset_type || 'pseudo-3d';
@@ -191,9 +199,10 @@ const updateDish = async (req, res) => {
       price = ?, spice_level = ?, calories = ?, preparation_time = ?, image_url = ?, thumbnail_url = ?, 
       is_available = ?, is_featured = ?, ai_description = ?, taste_tags = ?, ai_category = ?, ai_enhanced_image = ?,
       ar_enabled = ?, ar_image_url = ?, ar_asset_type = ?, ar_sprite_config = ?, ar_video_url = ?,
-      has_full_plate = ?, has_half_plate = ?, full_plate_price = ?, half_plate_price = ?
+      has_full_plate = ?, has_half_plate = ?, full_plate_price = ?, half_plate_price = ?,
+      dish_role = ?, cuisine_type = ?, meal_type = ?
       WHERE id = ?`,
-      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dishId]
+      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, ar_asset_type, ar_sprite_config, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, dishId]
     );
 
     res.json({ message: 'Dish updated' });
@@ -301,7 +310,13 @@ const bulkAddDishes = async (req, res) => {
         const preparation_time = parseInt(dish.preparation_time) || null;
         const spice_level = parseInt(dish.spice_level) || 0;
         
-        const is_available = dish.is_available === 'true' || dish.is_available === true || dish.is_available === '1' || dish.is_available === 1 || dish.is_available === 'Yes';
+        let is_available = true;
+        if (dish.is_available !== undefined && dish.is_available !== null) {
+          const availStr = String(dish.is_available).toLowerCase().trim();
+          if (availStr === 'false' || availStr === 'no' || availStr === '0') {
+            is_available = false;
+          }
+        }
         const is_featured = dish.is_featured === 'true' || dish.is_featured === true || dish.is_featured === '1' || dish.is_featured === 1 || dish.is_featured === 'Yes';
 
         let imageUrl = dish.image_url || null;
@@ -318,11 +333,15 @@ const bulkAddDishes = async (req, res) => {
           ar_video_url = dish.ar_asset_url || null;
         }
 
+        const dish_role = dish.dish_role || null;
+        const cuisine_type = dish.cuisine_type || null;
+        const meal_type = dish.meal_type || null;
+
         await connection.query(
           `INSERT INTO dishes 
-          (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, preparation_time, image_url, thumbnail_url, is_available, is_featured, ar_enabled, ar_image_url, ar_asset_type, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [restaurantId, name, short_description, description, ingredients, category, price, spice_level, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ar_enabled, ar_image_url, ar_asset_type, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price]
+          (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, preparation_time, image_url, thumbnail_url, is_available, is_featured, ar_enabled, ar_image_url, ar_asset_type, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [restaurantId, name, short_description, description, ingredients, category, price, spice_level, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ar_enabled, ar_image_url, ar_asset_type, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type]
         );
         importedCount++;
       } catch (err) {

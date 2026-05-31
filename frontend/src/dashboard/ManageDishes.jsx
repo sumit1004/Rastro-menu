@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils, Sparkles, Lock } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils, Sparkles, Lock, X } from 'lucide-react';
 import ImageCropper from '../components/ImageCropper';
 import api, { getImageUrl } from '../services/api';
 import Card from '../components/Card';
@@ -32,7 +32,10 @@ const ManageDishes = () => {
     has_full_plate: true,
     has_half_plate: false,
     full_plate_price: '',
-    half_plate_price: ''
+    half_plate_price: '',
+    dish_role: '',
+    cuisine_type: '',
+    meal_type: ''
   });
   const [imageFile, setImageFile] = useState(null);
   const [arImageFile, setArImageFile] = useState(null);
@@ -44,6 +47,14 @@ const ManageDishes = () => {
 
   const [existingAssets, setExistingAssets] = useState({ image: null, arImage: null, arVideo: null });
   const [removeAssets, setRemoveAssets] = useState({ image: false, arImage: false, arVideo: false });
+
+  const [suggestionsModalState, setSuggestionsModalState] = useState({
+    isOpen: false,
+    dish: null,
+    selectedSuggestions: [],
+    searchQuery: '',
+    saving: false
+  });
 
   const toggleAvailability = async (dish) => {
     try {
@@ -115,7 +126,7 @@ const ManageDishes = () => {
     handleOpenModal();
   };
 
-  const handleOpenModal = (dish = null) => {
+  const handleOpenModal = async (dish = null) => {
     if (dish) {
       setEditingId(dish.id);
       setFormData({
@@ -131,7 +142,10 @@ const ManageDishes = () => {
         has_full_plate: dish.has_full_plate !== undefined ? dish.has_full_plate : true,
         has_half_plate: !!dish.has_half_plate,
         full_plate_price: dish.full_plate_price || dish.price,
-        half_plate_price: dish.half_plate_price || ''
+        half_plate_price: dish.half_plate_price || '',
+        dish_role: dish.dish_role || '',
+        cuisine_type: dish.cuisine_type || '',
+        meal_type: dish.meal_type || ''
       });
       setExistingAssets({ image: dish.image_url, arImage: dish.ar_image_url, arVideo: dish.ar_video_url });
     } else {
@@ -146,7 +160,10 @@ const ManageDishes = () => {
         has_full_plate: true,
         has_half_plate: false,
         full_plate_price: '',
-        half_plate_price: ''
+        half_plate_price: '',
+        dish_role: '',
+        cuisine_type: '',
+        meal_type: ''
       });
       setExistingAssets({ image: null, arImage: null, arVideo: null });
     }
@@ -179,11 +196,18 @@ const ManageDishes = () => {
     if (removeAssets.arVideo) submitData.append('remove_ar_video', 'true');
 
     try {
+      let dishId = editingId;
       if (editingId) {
         await api.put(`/dishes/${editingId}`, submitData);
       } else {
-        await api.post('/dishes', submitData);
+        const res = await api.post('/dishes', submitData);
+        dishId = res.data.id;
       }
+
+      if (dishId && false) {
+        // Pairing sync removed from here, now handled in separate modal
+      }
+
       setIsModalOpen(false);
       await fetchDishes(restaurantId);
       await fetchSubscription(); // update usage count
@@ -217,6 +241,46 @@ const ManageDishes = () => {
   };
 
 
+
+  const handleOpenSuggestionsModal = async (dish) => {
+    setSuggestionsModalState({
+      isOpen: true,
+      dish,
+      selectedSuggestions: [],
+      searchQuery: '',
+      saving: false
+    });
+    
+    try {
+      const { data } = await api.get(`/suggestions/dish/${dish.id}`);
+      setSuggestionsModalState(prev => ({
+        ...prev,
+        selectedSuggestions: data.map(s => ({
+          id: s.id,
+          name: s.name,
+          category: s.category,
+          thumbnail_url: s.thumbnail_url
+        }))
+      }));
+    } catch (err) {
+      console.error("Failed to load existing suggestions", err);
+    }
+  };
+
+  const handleSaveSuggestions = async (e) => {
+    e.preventDefault();
+    setSuggestionsModalState(prev => ({ ...prev, saving: true }));
+    try {
+      await api.put(`/suggestions/sync/${suggestionsModalState.dish.id}`, {
+        suggested_dish_ids: suggestionsModalState.selectedSuggestions.map(s => s.id)
+      });
+      setSuggestionsModalState(prev => ({ ...prev, isOpen: false }));
+    } catch (err) {
+      alert("Failed to save suggestions");
+    } finally {
+      setSuggestionsModalState(prev => ({ ...prev, saving: false }));
+    }
+  };
 
   if (loading) return <Loader />;
 
@@ -291,6 +355,7 @@ const ManageDishes = () => {
                 >
                   {dish.is_available ? 'Available' : 'Not Available'}
                 </Button>
+                <Button variant="outline" style={{ padding: '0.5rem' }} onClick={() => handleOpenSuggestionsModal(dish)} title="Add Suggestions"><Sparkles size={16} /></Button>
                 <Button variant="outline" style={{ padding: '0.5rem' }} onClick={() => handleOpenModal(dish)}><Edit2 size={16} /></Button>
                 <Button variant="outline" style={{ padding: '0.5rem', color: '#ef4444', borderColor: '#ef4444' }} onClick={() => handleDelete(dish.id)}><Trash2 size={16} /></Button>
               </div>
@@ -310,6 +375,52 @@ const ManageDishes = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '1rem' }}>
             <Input label="Category*" id="category" value={formData.category} onChange={handleChange} required />
             <Input label="Base Price (₹)*" type="number" step="0.01" id="price" value={formData.price} onChange={handleChange} required />
+          </div>
+
+          <div className="form-group" style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
+            <h4 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Smart Pairing Configuration</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))', gap: '1rem' }}>
+              <div>
+                <label className="form-label">Dish Role</label>
+                <select id="dish_role" value={formData.dish_role} onChange={handleChange} className="form-control">
+                  <option value="">Select Role...</option>
+                  <option value="main">Main</option>
+                  <option value="side">Side</option>
+                  <option value="starter">Starter</option>
+                  <option value="dessert">Dessert</option>
+                  <option value="beverage">Beverage</option>
+                  <option value="bread">Bread</option>
+                  <option value="dip">Dip</option>
+                  <option value="accompaniment">Accompaniment</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Cuisine Type</label>
+                <select id="cuisine_type" value={formData.cuisine_type} onChange={handleChange} className="form-control">
+                  <option value="">Select Cuisine...</option>
+                  <option value="North Indian">North Indian</option>
+                  <option value="South Indian">South Indian</option>
+                  <option value="Chinese">Chinese</option>
+                  <option value="Italian">Italian</option>
+                  <option value="Fast Food">Fast Food</option>
+                  <option value="Dessert">Dessert</option>
+                  <option value="Beverage">Beverage</option>
+                  <option value="Street Food">Street Food</option>
+                </select>
+              </div>
+              <div>
+                <label className="form-label">Meal Type</label>
+                <select id="meal_type" value={formData.meal_type} onChange={handleChange} className="form-control">
+                  <option value="">Select Meal...</option>
+                  <option value="Lunch">Lunch</option>
+                  <option value="Dinner">Dinner</option>
+                  <option value="Snack">Snack</option>
+                  <option value="Breakfast">Breakfast</option>
+                  <option value="Dessert">Dessert</option>
+                  <option value="Drink">Drink</option>
+                </select>
+              </div>
+            </div>
           </div>
           
           <div className="form-group" style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
@@ -500,6 +611,123 @@ const ManageDishes = () => {
           setIsCropperOpen(false);
         }} 
       />
+
+      {/* Suggestions Modal */}
+      <Modal isOpen={suggestionsModalState.isOpen} onClose={() => setSuggestionsModalState(prev => ({ ...prev, isOpen: false }))} title="Add Suggestions">
+        {suggestionsModalState.dish && (
+          <form onSubmit={handleSaveSuggestions} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', backgroundColor: '#f8fafc', padding: '1rem', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
+              <div style={{ width: '48px', height: '48px', borderRadius: '0.25rem', overflow: 'hidden', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyItems: 'center' }}>
+                {suggestionsModalState.dish.thumbnail_url ? (
+                  <img src={getImageUrl(suggestionsModalState.dish.thumbnail_url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                ) : (
+                  <ImageIcon className="text-muted" style={{ margin: 'auto' }} />
+                )}
+              </div>
+              <div>
+                <p className="text-muted" style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Suggestions for:</p>
+                <h4 style={{ margin: 0 }}>{suggestionsModalState.dish.name}</h4>
+              </div>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <Input 
+                placeholder="Search real dishes by name..." 
+                value={suggestionsModalState.searchQuery}
+                onChange={(e) => setSuggestionsModalState(prev => ({ ...prev, searchQuery: e.target.value }))}
+              />
+              {suggestionsModalState.searchQuery && (
+                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '0.5rem', marginTop: '0.25rem', zIndex: 10, maxHeight: '250px', overflowY: 'auto', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}>
+                  {dishes.filter(d => 
+                    d.id !== suggestionsModalState.dish.id && 
+                    !suggestionsModalState.selectedSuggestions.find(s => s.id === d.id) &&
+                    d.name.toLowerCase().includes(suggestionsModalState.searchQuery.toLowerCase())
+                  ).map(d => (
+                    <div key={d.id} 
+                         onClick={() => {
+                           setSuggestionsModalState(prev => ({
+                             ...prev,
+                             selectedSuggestions: [...prev.selectedSuggestions, d],
+                             searchQuery: ''
+                           }));
+                         }}
+                         style={{ padding: '0.75rem 1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.75rem', borderBottom: '1px solid #f1f5f9' }}
+                         onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                         onMouseLeave={e => e.currentTarget.style.backgroundColor = 'white'}
+                    >
+                      <div style={{ width: '32px', height: '32px', borderRadius: '0.25rem', overflow: 'hidden', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
+                        {d.thumbnail_url ? <img src={getImageUrl(d.thumbnail_url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '0.875rem', fontWeight: '500' }}>{d.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>₹{d.price} • {d.category}</div>
+                      </div>
+                      <div style={{ marginLeft: 'auto', color: '#16a34a' }}><Plus size={16} /></div>
+                    </div>
+                  ))}
+                  {dishes.filter(d => d.id !== suggestionsModalState.dish.id && !suggestionsModalState.selectedSuggestions.find(s => s.id === d.id) && d.name.toLowerCase().includes(suggestionsModalState.searchQuery.toLowerCase())).length === 0 && (
+                    <div style={{ padding: '1rem', fontSize: '0.875rem', color: '#64748b', textAlign: 'center' }}>No available dishes found.</div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h5 style={{ fontSize: '0.875rem', fontWeight: '600', marginBottom: '0.75rem', color: '#475569' }}>Selected Suggestions</h5>
+              {suggestionsModalState.selectedSuggestions.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px dashed #cbd5e1', color: '#94a3b8', fontSize: '0.875rem' }}>
+                  No suggestions added yet. Search above to add some.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {suggestionsModalState.selectedSuggestions.map((s, idx) => (
+                    <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem', backgroundColor: 'white', border: '1px solid #e2e8f0', borderRadius: '0.5rem', boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '0.25rem', overflow: 'hidden', backgroundColor: '#e2e8f0', flexShrink: 0 }}>
+                        {s.thumbnail_url ? <img src={getImageUrl(s.thumbnail_url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.875rem', fontWeight: '500' }}>{s.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{s.category}</div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button type="button" onClick={() => {
+                          if (idx > 0) {
+                            setSuggestionsModalState(prev => {
+                              const arr = [...prev.selectedSuggestions];
+                              [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+                              return { ...prev, selectedSuggestions: arr };
+                            });
+                          }
+                        }} style={{ background: 'none', border: 'none', padding: '0.25rem', cursor: 'pointer', color: '#94a3b8' }}>↑</button>
+                        <button type="button" onClick={() => {
+                          if (idx < suggestionsModalState.selectedSuggestions.length - 1) {
+                            setSuggestionsModalState(prev => {
+                              const arr = [...prev.selectedSuggestions];
+                              [arr[idx + 1], arr[idx]] = [arr[idx], arr[idx + 1]];
+                              return { ...prev, selectedSuggestions: arr };
+                            });
+                          }
+                        }} style={{ background: 'none', border: 'none', padding: '0.25rem', cursor: 'pointer', color: '#94a3b8' }}>↓</button>
+                        <button type="button" onClick={() => {
+                          setSuggestionsModalState(prev => ({
+                            ...prev,
+                            selectedSuggestions: prev.selectedSuggestions.filter(item => item.id !== s.id)
+                          }));
+                        }} style={{ background: 'none', border: 'none', padding: '0.25rem', cursor: 'pointer', color: '#ef4444' }}><X size={16} /></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #e2e8f0' }}>
+              <Button type="button" variant="outline" onClick={() => setSuggestionsModalState(prev => ({ ...prev, isOpen: false }))}>Cancel</Button>
+              <Button type="submit" loading={suggestionsModalState.saving}>Save Suggestions</Button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 };

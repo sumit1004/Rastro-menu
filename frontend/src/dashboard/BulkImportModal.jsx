@@ -18,11 +18,13 @@ const TEMPLATE_COLUMNS = [
   'Dish Image URL',
   'AR Asset URL',
   'AR Asset Type',
-  'Enable AR Preview',
   'Available',
   'Featured',
   'Veg/Non-Veg',
-  'Spicy Level'
+  'Spicy Level',
+  'Dish Role',
+  'Cuisine Type',
+  'Meal Type'
 ];
 
 const BulkImportModal = ({ isOpen, onClose, onImportSuccess }) => {
@@ -39,8 +41,8 @@ const BulkImportModal = ({ isOpen, onClose, onImportSuccess }) => {
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       TEMPLATE_COLUMNS,
-      ['Classic Burger', 'Fast Food', '150', 'No', '', 'No', '', 'Delicious beef burger', 'Beef, Lettuce, Tomato', '15', 'https://example.com/burger.jpg', '', 'pseudo-3d', 'No', 'Yes', 'Yes', 'Non-Veg', '2'],
-      ['Margherita Pizza', 'Italian', '350', 'Yes', '350', 'Yes', '200', 'Classic cheese pizza', 'Cheese, Tomato', '20', 'https://example.com/pizza.jpg', 'https://example.com/pizza.mp4', 'video', 'Yes', 'Yes', 'No', 'Veg', '1']
+      ['Classic Burger', 'Fast Food', '150', 'No', '', 'No', '', 'Delicious beef burger', 'Beef, Lettuce, Tomato', '15', 'https://example.com/burger.jpg', '', 'pseudo-3d', 'No', 'Yes', 'Yes', 'Non-Veg', '2', 'main', 'Fast Food', 'Lunch'],
+      ['Margherita Pizza', 'Italian', '350', 'Yes', '350', 'Yes', '200', 'Classic cheese pizza', 'Cheese, Tomato', '20', 'https://example.com/pizza.jpg', 'https://example.com/pizza.mp4', 'video', 'Yes', 'Yes', 'No', 'Veg', '1', 'main', 'Italian', 'Dinner']
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Menu Template');
@@ -120,6 +122,15 @@ const BulkImportModal = ({ isOpen, onClose, onImportSuccess }) => {
         return;
       }
 
+      let isAvailableRaw = row[getColIndex('Available')];
+      let is_available = true;
+      if (isAvailableRaw !== undefined && isAvailableRaw !== null && isAvailableRaw !== '') {
+        const str = String(isAvailableRaw).toLowerCase().trim();
+        if (str === 'false' || str === 'no' || str === '0') {
+          is_available = false;
+        }
+      }
+
       const dish = {
         name: name.toString().trim(),
         category: category.toString().trim(),
@@ -135,9 +146,12 @@ const BulkImportModal = ({ isOpen, onClose, onImportSuccess }) => {
         ar_asset_url: row[getColIndex('AR Asset URL')]?.toString().trim() || '',
         ar_asset_type: row[getColIndex('AR Asset Type')]?.toString().trim() || 'pseudo-3d',
         ar_enabled: row[getColIndex('Enable AR Preview')]?.toString().trim() || 'No',
-        is_available: row[getColIndex('Available')]?.toString().trim() || 'Yes',
+        is_available: is_available,
         is_featured: row[getColIndex('Featured')]?.toString().trim() || 'No',
         spice_level: parseInt(row[getColIndex('Spicy Level')]) || 0,
+        dish_role: row[getColIndex('Dish Role')]?.toString().trim() || '',
+        cuisine_type: row[getColIndex('Cuisine Type')]?.toString().trim() || '',
+        meal_type: row[getColIndex('Meal Type')]?.toString().trim() || '',
       };
 
       // Basic URL validation
@@ -354,6 +368,7 @@ const BulkImportModal = ({ isOpen, onClose, onImportSuccess }) => {
                       <th>Dish Name</th>
                       <th>Category</th>
                       <th>Price</th>
+                      <th>Available</th>
                       <th>Assets</th>
                     </tr>
                   </thead>
@@ -363,6 +378,13 @@ const BulkImportModal = ({ isOpen, onClose, onImportSuccess }) => {
                         <td className="fw-bold">{dish.name}</td>
                         <td><span className="bim-cat-badge">{dish.category}</span></td>
                         <td>₹{dish.price}</td>
+                        <td>
+                          {dish.is_available ? (
+                            <span style={{ color: '#10b981', fontWeight: '500' }}>Yes</span>
+                          ) : (
+                            <span style={{ color: '#ef4444', fontWeight: '500' }}>No</span>
+                          )}
+                        </td>
                         <td>
                           <div className="bim-assets-icons">
                             {dish.image_url ? <span title="Image URL present">🖼️</span> : <span className="opacity-30">🖼️</span>}

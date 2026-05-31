@@ -109,6 +109,7 @@ const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const suggestionRoutes = require('./routes/suggestionRoutes');
 
 // Use Routes
 app.use('/api/auth', authRoutes);
@@ -120,6 +121,7 @@ app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/suggestions', suggestionRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
