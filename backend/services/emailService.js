@@ -1,40 +1,24 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const { buildPasswordResetEmail } = require('../templates/passwordResetEmail');
 const { RESET_EXPIRY_MINUTES } = require('../utils/passwordReset');
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-  connectionTimeout: 10000,
-  greetingTimeout: 10000,
-  socketTimeout: 10000,
-});
+let resend = null;
 
-transporter.verify(function(error, success) {
-  if (error) {
-    console.log("SMTP ERROR:", error);
-  } else {
-    console.log("SMTP SERVER READY");
+const getResendClient = () => {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
   }
-});
-
-const isEmailConfigured = () => {
-  return Boolean(process.env.EMAIL_USER && process.env.EMAIL_PASS);
-};
-
-const verifySmtpConnection = async () => {
-  try {
-    await transporter.verify();
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
+  return resend;
 };
 
 const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
+  const client = getResendClient();
+  
+  if (!client) {
+    console.error('[emailService] Cannot send email: RESEND_API_KEY is not configured.');
+    return { sent: false, reason: 'MISSING_API_KEY', error: 'RESEND_API_KEY is missing' };
+  }
+
   const template = buildPasswordResetEmail({
     name,
     resetUrl,
@@ -42,14 +26,20 @@ const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
   });
 
   try {
-    const info = await transporter.sendMail({
-      from: `RASTROmenu <${process.env.EMAIL_USER}>`,
+    const { data, error } = await client.emails.send({
+      from: 'RASTROmenu <onboarding@resend.dev>',
       to,
       subject: template.subject,
       html: template.html,
       text: template.text,
     });
-    return { sent: true, messageId: info.messageId };
+
+    if (error) {
+      console.error('[emailService] Resend API Error:', error);
+      return { sent: false, reason: 'RESEND_API_ERROR', error: error.message };
+    }
+
+    return { sent: true, messageId: data.id };
   } catch (err) {
     console.error('[emailService] Send failed:', err.message);
     return { sent: false, reason: 'SEND_FAILED', error: err.message };
@@ -57,7 +47,5 @@ const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
 };
 
 module.exports = {
-  isEmailConfigured,
-  verifySmtpConnection,
   sendPasswordResetEmail,
 };

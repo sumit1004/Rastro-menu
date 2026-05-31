@@ -13,9 +13,6 @@ const { sendPasswordResetEmail } = require('../services/emailService');
 const GENERIC_RESET_MESSAGE =
   'If an account exists with that email, a reset link has been sent.';
 
-const isDevMode = () =>
-  process.env.NODE_ENV !== 'production' || process.env.ALLOW_DEV_RESET_LINK === 'true';
-
 const dispatchPasswordResetEmail = async (user) => {
   const { raw, hash, expires } = generateResetToken();
 
@@ -35,9 +32,6 @@ const dispatchPasswordResetEmail = async (user) => {
 
   if (!mailResult.sent) {
     console.error('[forgotPassword] Email not delivered:', mailResult.reason, mailResult.error || '');
-    if (isDevMode()) {
-      console.info('[forgotPassword] Dev reset URL (use if inbox empty):', resetUrl);
-    }
   } else {
     console.info('[forgotPassword] Reset email sent to:', user.email.replace(/(.{2}).*(@.*)/, '$1***$2'));
   }
@@ -169,13 +163,7 @@ const forgotPassword = async (req, res) => {
     const payload = { message: GENERIC_RESET_MESSAGE, success: true };
 
     if (users.length > 0) {
-      const { resetUrl, mailResult } = await dispatchPasswordResetEmail(users[0]);
-      if (isDevMode()) {
-        payload.devResetUrl = resetUrl;
-        payload.emailDispatched = Boolean(mailResult.sent);
-      }
-    } else if (isDevMode()) {
-      console.info('[forgotPassword] No user found for email (response still generic).');
+      await dispatchPasswordResetEmail(users[0]);
     }
 
     res.json(payload);
