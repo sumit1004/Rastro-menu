@@ -8,11 +8,25 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('rastro_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const initAuth = async () => {
+      const storedUser = localStorage.getItem('rastro_user');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+        // Verify token in background
+        try {
+          const { data } = await api.get('/auth/me');
+          const updatedUser = { ...JSON.parse(storedUser), ...data };
+          localStorage.setItem('rastro_user', JSON.stringify(updatedUser));
+          setUser(updatedUser);
+        } catch (err) {
+          console.error('Failed to verify token on load:', err);
+          localStorage.removeItem('rastro_user');
+          setUser(null);
+        }
+      }
+      setLoading(false);
+    };
+    initAuth();
   }, []);
 
   const verifyToken = async () => {

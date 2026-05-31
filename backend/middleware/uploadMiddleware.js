@@ -24,12 +24,15 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image')) {
+  const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  const allowedVideoTypes = ['video/mp4', 'video/webm'];
+
+  if (allowedImageTypes.includes(file.mimetype)) {
     cb(null, true);
-  } else if (file.fieldname === 'ar_video' && file.mimetype.startsWith('video')) {
+  } else if (file.fieldname === 'ar_video' && allowedVideoTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type! Only images and AR videos are allowed.'), false);
+    cb(new Error('Invalid file type! Only JPG, PNG, WEBP, GIF images and MP4, WEBM videos are allowed.'), false);
   }
 };
 

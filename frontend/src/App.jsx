@@ -7,22 +7,25 @@ import Loader from './components/Loader';
 
 // Pages
 import LandingPage from './pages/Landing/LandingPage';
-import Login from './auth/Login';
-import Signup from './auth/Signup';
-import ForgotPassword from './auth/ForgotPassword';
-import ResetPassword from './auth/ResetPassword';
-import DashboardLayout from './dashboard/DashboardLayout';
-import DashboardOverview from './dashboard/DashboardOverview';
-import RestaurantProfile from './dashboard/RestaurantProfile';
-import ManageDishes from './dashboard/ManageDishes';
-import ManageReviews from './dashboard/ManageReviews';
-import AnalyticsOverview from './dashboard/AnalyticsOverview';
-import QRMenu from './dashboard/QRMenu';
 import PublicMenu from './menu/PublicMenu';
-import Settings from './dashboard/Settings';
-import AdminDashboard from './admin/AdminDashboard';
 import Legal from './pages/Legal';
-import Orders from './dashboard/Orders';
+
+// Lazy Loaded Pages
+import { Suspense, lazy } from 'react';
+const Login = lazy(() => import('./auth/Login'));
+const Signup = lazy(() => import('./auth/Signup'));
+const ForgotPassword = lazy(() => import('./auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('./auth/ResetPassword'));
+const DashboardLayout = lazy(() => import('./dashboard/DashboardLayout'));
+const DashboardOverview = lazy(() => import('./dashboard/DashboardOverview'));
+const RestaurantProfile = lazy(() => import('./dashboard/RestaurantProfile'));
+const ManageDishes = lazy(() => import('./dashboard/ManageDishes'));
+const ManageReviews = lazy(() => import('./dashboard/ManageReviews'));
+const AnalyticsOverview = lazy(() => import('./dashboard/AnalyticsOverview'));
+const QRMenu = lazy(() => import('./dashboard/QRMenu'));
+const Settings = lazy(() => import('./dashboard/Settings'));
+const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
+const Orders = lazy(() => import('./dashboard/Orders'));
 
 const HashScrollHandler = () => {
   const location = useLocation();
@@ -45,6 +48,7 @@ const ProtectedRoute = ({ children }) => {
 
 const AppRoutes = () => {
   return (
+    <Suspense fallback={<Loader />}>
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<Login />} />
@@ -89,6 +93,7 @@ const AppRoutes = () => {
         }
       />
     </Routes>
+    </Suspense>
   );
 };
 

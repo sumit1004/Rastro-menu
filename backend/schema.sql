@@ -51,6 +51,10 @@ CREATE TABLE IF NOT EXISTS dishes (
     dish_role VARCHAR(50) DEFAULT NULL,
     cuisine_type VARCHAR(50) DEFAULT NULL,
     meal_type VARCHAR(50) DEFAULT NULL,
+    has_full_plate BOOLEAN DEFAULT TRUE,
+    has_half_plate BOOLEAN DEFAULT FALSE,
+    full_plate_price DECIMAL(10, 2) DEFAULT 0,
+    half_plate_price DECIMAL(10, 2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
 );
@@ -117,3 +121,51 @@ CREATE TABLE IF NOT EXISTS dish_suggestions (
 
 CREATE INDEX idx_dish_suggestions_dish_id ON dish_suggestions(dish_id);
 CREATE INDEX idx_dish_suggestions_restaurant_id ON dish_suggestions(restaurant_id);
+
+CREATE TABLE IF NOT EXISTS orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    restaurant_id INT NOT NULL,
+    table_number VARCHAR(50) NOT NULL,
+    customer_mobile VARCHAR(20) NOT NULL,
+    customer_note TEXT,
+    order_status ENUM('pending', 'accepted', 'ready', 'completed', 'cancelled', 'delivered') DEFAULT 'pending',
+    total_amount DECIMAL(10,2) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    delivered_at TIMESTAMP NULL DEFAULT NULL,
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_orders_restaurant_id ON orders(restaurant_id);
+CREATE INDEX idx_orders_status ON orders(order_status);
+CREATE INDEX idx_orders_created_at ON orders(created_at);
+
+CREATE TABLE IF NOT EXISTS order_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    dish_id INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    plate_type ENUM('full', 'half') DEFAULT 'full',
+    item_price DECIMAL(10, 2) NOT NULL,
+    item_note VARCHAR(255),
+    FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_order_items_order_id ON order_items(order_id);
+
+CREATE TABLE IF NOT EXISTS dish_pairings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    restaurant_id INT NOT NULL,
+    dish_id INT NOT NULL,
+    paired_dish_id INT NOT NULL,
+    priority INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
+    FOREIGN KEY (dish_id) REFERENCES dishes(id) ON DELETE CASCADE,
+    FOREIGN KEY (paired_dish_id) REFERENCES dishes(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_pairing (dish_id, paired_dish_id)
+);
+
+CREATE INDEX idx_dish_pairings_dish_id ON dish_pairings(dish_id);
+CREATE INDEX idx_dish_pairings_restaurant_id ON dish_pairings(restaurant_id);
+

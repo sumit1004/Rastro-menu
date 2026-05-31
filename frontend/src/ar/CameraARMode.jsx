@@ -316,6 +316,20 @@ const CameraARMode = ({ dish, onClose, onCameraError }) => {
       window.removeEventListener('resize', handleResize);
       cancelAnimationFrame(animationFrameId);
       
+      scene.traverse((object) => {
+        if (object.geometry) object.geometry.dispose();
+        if (object.material) {
+          if (Array.isArray(object.material)) {
+            object.material.forEach(mat => {
+              if (mat.map) mat.map.dispose();
+              mat.dispose();
+            });
+          } else {
+            if (object.material.map) object.material.map.dispose();
+            object.material.dispose();
+          }
+        }
+      });
       scene.clear();
       renderer.dispose();
       if (containerRef.current && containerRef.current.contains(renderer.domElement)) {
