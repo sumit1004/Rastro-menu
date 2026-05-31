@@ -1,0 +1,493 @@
+.bim-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.bim-modal {
+  background: #ffffff;
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.bim-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+}
+
+.bim-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.bim-close {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.bim-close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.bim-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  background: #ffffff;
+}
+
+/* Upload Step */
+.bim-upload-step {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.bim-instruction-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.bim-step-number {
+  background: #0f172a;
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.bim-step-text {
+  flex: 1;
+}
+
+.bim-step-text h4 {
+  margin: 0 0 4px 0;
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.bim-step-text p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.bim-upload-zone {
+  margin-top: 16px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 32px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #ffffff;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.bim-upload-zone:hover {
+  border-color: #f97316;
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+/* Validation & Preview Step */
+.bim-preview-step {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.bim-preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.bim-preview-header h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.bim-validation-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.bim-val-card {
+  padding: 16px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+}
+
+.bim-val-card.valid {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #065f46;
+}
+
+.bim-val-card.invalid {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.bim-val-card.total {
+  background: #f8fafc;
+  color: #334155;
+}
+
+.bim-val-num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.bim-val-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.bim-duplicate-handling {
+  background: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.bim-duplicate-handling select {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.bim-table-container {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.bim-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.bim-table th {
+  background: #f8fafc;
+  padding: 12px 16px;
+  color: #475569;
+  font-weight: 600;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.bim-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #334155;
+}
+
+.bim-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.bim-cat-badge {
+  background: #e2e8f0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.bim-assets-icons {
+  display: flex;
+  gap: 8px;
+  font-size: 1.1rem;
+}
+
+.opacity-30 { opacity: 0.3; }
+.fw-bold { font-weight: 600; color: #0f172a; }
+
+.bim-table-footer {
+  padding: 12px;
+  text-align: center;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.875rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* Summary Step */
+.bim-summary {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 20px;
+  padding: 32px 0;
+}
+
+.bim-summary h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.bim-summary-stats {
+  display: flex;
+  gap: 24px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.bim-stat-box {
+  flex: 1;
+  padding: 20px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.bim-stat-box.success {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.bim-stat-box.failed {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.bim-stat-val {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.bim-error-list {
+  text-align: left;
+  width: 100%;
+  max-width: 500px;
+  background: #fef2f2;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+}
+
+.bim-error-list h4 {
+  margin: 0 0 8px 0;
+  color: #991b1b;
+}
+
+.bim-error-list ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #b91c1c;
+  font-size: 0.875rem;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+/* Alerts */
+.bim-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.bim-alert.error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.bim-alert.warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.bim-warning-list {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+/* Buttons & Footer */
+.bim-footer {
+  padding: 20px 24px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background: #f8fafc;
+}
+
+.bim-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.bim-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bim-btn.primary {
+  background: #f97316;
+  color: white;
+  border: none;
+}
+
+.bim-btn.primary:hover:not(:disabled) {
+  background: #ea580c;
+}
+
+.bim-btn.outline {
+  background: transparent;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.bim-btn.outline:hover {
+  background: #f1f5f9;
+}
+
+.bim-btn.text {
+  background: transparent;
+  color: #64748b;
+  border: none;
+}
+
+.bim-btn.text:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.bim-btn.full-width {
+  width: 100%;
+  max-width: 300px;
+}
+
+/* Utilities */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.fade-in {
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+.slide-up {
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .bim-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+  
+  .bim-modal {
+    border-radius: 20px 20px 0 0;
+    max-height: 95vh;
+  }
+  
+  .bim-instruction-card {
+    flex-direction: column;
+  }
+  
+  .bim-validation-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .bim-footer {
+    flex-direction: column-reverse;
+  }
+  
+  .bim-btn {
+    width: 100%;
+  }
+}

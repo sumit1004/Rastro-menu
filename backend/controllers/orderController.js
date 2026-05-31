@@ -34,7 +34,7 @@ const placeOrder = async (req, res) => {
 
     for (const item of items) {
       const [dishRows] = await connection.query(
-        `SELECT id, name, price, full_plate_price, half_plate_price 
+        `SELECT id, name, price, full_plate_price, half_plate_price, is_available 
          FROM dishes WHERE id = ? AND restaurant_id = ?`,
         [item.dish_id, restaurant_id]
       );
@@ -44,6 +44,10 @@ const placeOrder = async (req, res) => {
       }
 
       const dish = dishRows[0];
+      if (!dish.is_available) {
+        await connection.rollback();
+        return res.status(400).json({ message: `Dish is currently unavailable: ${dish.name}` });
+      }
       const plateType = item.plate_type === 'half' ? 'half' : 'full';
       const itemPrice = resolveItemPrice(dish, plateType);
       const qty = Math.max(1, parseInt(item.quantity, 10) || 1);

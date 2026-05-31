@@ -8,11 +8,14 @@ import Input from '../components/Input';
 import Modal from '../components/Modal';
 import Loader from '../components/Loader';
 import UpgradeModal from '../components/UpgradeModal';
+import BulkImportModal from './BulkImportModal';
+import { FileText } from 'lucide-react';
 
 const ManageDishes = () => {
   const [dishes, setDishes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [restaurantId, setRestaurantId] = useState(null);
   
@@ -38,6 +41,20 @@ const ManageDishes = () => {
   const [videoPreviewSrc, setVideoPreviewSrc] = useState(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const [existingAssets, setExistingAssets] = useState({ image: null, arImage: null, arVideo: null });
+  const [removeAssets, setRemoveAssets] = useState({ image: false, arImage: false, arVideo: false });
+
+  const toggleAvailability = async (dish) => {
+    try {
+      const newStatus = !dish.is_available;
+      setDishes(dishes.map(d => d.id === dish.id ? { ...d, is_available: newStatus } : d));
+      await api.patch(`/dishes/${dish.id}/availability`, { is_available: newStatus });
+    } catch (error) {
+      alert('Failed to update availability');
+      setDishes(dishes.map(d => d.id === dish.id ? { ...d, is_available: dish.is_available } : d));
+    }
+  };
 
   const fetchDishes = async (restId) => {
     try {
@@ -116,6 +133,7 @@ const ManageDishes = () => {
         full_plate_price: dish.full_plate_price || dish.price,
         half_plate_price: dish.half_plate_price || ''
       });
+      setExistingAssets({ image: dish.image_url, arImage: dish.ar_image_url, arVideo: dish.ar_video_url });
     } else {
       setEditingId(null);
       setFormData({
@@ -130,7 +148,9 @@ const ManageDishes = () => {
         full_plate_price: '',
         half_plate_price: ''
       });
+      setExistingAssets({ image: null, arImage: null, arVideo: null });
     }
+    setRemoveAssets({ image: false, arImage: false, arVideo: false });
     setImageFile(null);
     setArImageFile(null);
     setArVideoFile(null);
@@ -154,6 +174,9 @@ const ManageDishes = () => {
     if (imageFile) submitData.append('image', imageFile);
     if (arImageFile) submitData.append('ar_image', arImageFile);
     if (arVideoFile) submitData.append('ar_video', arVideoFile);
+    if (removeAssets.image) submitData.append('remove_image', 'true');
+    if (removeAssets.arImage) submitData.append('remove_ar_image', 'true');
+    if (removeAssets.arVideo) submitData.append('remove_ar_video', 'true');
 
     try {
       if (editingId) {
@@ -217,8 +240,22 @@ const ManageDishes = () => {
           <h2>Manage Dishes</h2>
           <p className="text-muted">Add, edit, or remove dishes from your menu.</p>
         </div>
-        <Button onClick={handleOpenAddModal} icon={<Plus size={18} />}>Add New Dish</Button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <Button variant="outline" onClick={() => setIsBulkImportOpen(true)} icon={<FileText size={18} />}>
+            Bulk Import Menu
+          </Button>
+          <Button onClick={handleOpenAddModal} icon={<Plus size={18} />}>Add New Dish</Button>
+        </div>
       </div>
+
+      <BulkImportModal 
+        isOpen={isBulkImportOpen} 
+        onClose={() => setIsBulkImportOpen(false)} 
+        onImportSuccess={() => {
+          fetchDishes(restaurantId);
+          fetchSubscription();
+        }} 
+      />
 
       <div className="dishes-list" style={{ display: 'grid', gap: '1rem' }}>
         {dishes.length === 0 ? (
@@ -247,6 +284,13 @@ const ManageDishes = () => {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Button 
+                  variant={dish.is_available ? "outline" : "solid"} 
+                  style={{ padding: '0.5rem', backgroundColor: dish.is_available ? 'transparent' : '#f3f4f6', color: dish.is_available ? '#16a34a' : '#4b5563', borderColor: dish.is_available ? '#16a34a' : '#d1d5db' }} 
+                  onClick={() => toggleAvailability(dish)}
+                >
+                  {dish.is_available ? 'Available' : 'Not Available'}
+                </Button>
                 <Button variant="outline" style={{ padding: '0.5rem' }} onClick={() => handleOpenModal(dish)}><Edit2 size={16} /></Button>
                 <Button variant="outline" style={{ padding: '0.5rem', color: '#ef4444', borderColor: '#ef4444' }} onClick={() => handleDelete(dish.id)}><Trash2 size={16} /></Button>
               </div>
@@ -312,6 +356,12 @@ const ManageDishes = () => {
 
           <div className="form-group">
             <label className="form-label">Dish Image</label>
+            {existingAssets.image && !removeAssets.image && !imageFile && (
+              <div style={{ marginBottom: '1rem', position: 'relative', width: 'fit-content' }}>
+                <img src={getImageUrl(existingAssets.image)} alt="Current" style={{ width: '150px', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }} />
+                <button type="button" onClick={() => window.confirm("Remove existing image?") && setRemoveAssets({...removeAssets, image: true})} style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '24px', height: '24px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', paddingBottom: '2px' }}>×</button>
+              </div>
+            )}
             <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} className="form-control" />
           </div>
 
@@ -358,6 +408,12 @@ const ManageDishes = () => {
                   {formData.ar_asset_type === 'static' ? (
                     <>
                       <label className="form-label">Static AR Image File</label>
+                      {existingAssets.arImage && !removeAssets.arImage && !arImageFile && (
+                        <div style={{ marginBottom: '1rem', position: 'relative', width: 'fit-content' }}>
+                          <img src={getImageUrl(existingAssets.arImage)} alt="Current AR" style={{ width: '150px', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9' }} />
+                          <button type="button" onClick={() => window.confirm("Remove existing AR image?") && setRemoveAssets({...removeAssets, arImage: true})} style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '24px', height: '24px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', paddingBottom: '2px' }}>×</button>
+                        </div>
+                      )}
                       <input 
                         type="file" 
                         accept="image/png,image/webp" 
@@ -379,6 +435,12 @@ const ManageDishes = () => {
                   ) : (
                     <>
                       <label className="form-label">Cinematic AR Video File</label>
+                      {existingAssets.arVideo && !removeAssets.arVideo && !arVideoFile && (
+                        <div style={{ marginBottom: '1rem', position: 'relative', width: 'fit-content' }}>
+                          <video src={getImageUrl(existingAssets.arVideo)} style={{ width: '200px', height: '150px', objectFit: 'contain', borderRadius: '0.5rem', backgroundColor: '#000' }} controls />
+                          <button type="button" onClick={() => window.confirm("Remove existing AR video?") && setRemoveAssets({...removeAssets, arVideo: true})} style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '24px', height: '24px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', paddingBottom: '2px', zIndex: 10 }}>×</button>
+                        </div>
+                      )}
                       <input 
                         type="file" 
                         accept="video/mp4,video/webm" 

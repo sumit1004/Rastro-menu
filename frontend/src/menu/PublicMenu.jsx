@@ -44,6 +44,9 @@ const PublicMenu = () => {
   
   const [dishReviews, setDishReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [isDropReviewOpen, setIsDropReviewOpen] = useState(false);
+  const [hoveredStar, setHoveredStar] = useState(0);
 
   const [isARViewerOpen, setIsARViewerOpen] = useState(false);
 
@@ -118,10 +121,9 @@ const PublicMenu = () => {
         setRestaurant(restRes.data);
         
         const dishesRes = await api.get(`/dishes/restaurant/${restRes.data.id}`);
-        const availableDishes = dishesRes.data.filter(d => d.is_available);
-        setDishes(availableDishes);
+        setDishes(dishesRes.data);
         
-        const uniqueCategories = ['All', ...new Set(availableDishes.map(d => d.ai_category || d.category))];
+        const uniqueCategories = ['All', ...new Set(dishesRes.data.map(d => d.ai_category || d.category))];
         setCategories(uniqueCategories);
 
         analyticsService.trackSession(restRes.data.id);
@@ -191,6 +193,7 @@ const PublicMenu = () => {
       };
       setDishReviews([newReviewObj, ...dishReviews]);
       
+      setIsDropReviewOpen(false); // Close drop review modal
       alert('Review submitted successfully!');
       setReviewInput('');
       setRatingInput(5);
@@ -429,7 +432,10 @@ const PublicMenu = () => {
       </div>
       <div className="pm-m-trend-body">
         <div className="pm-m-trend-head">
-          <h4>{dish.name}</h4>
+          <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {dish.name}
+            {!dish.is_available && <span style={{ fontSize: '0.65rem', padding: '0.125rem 0.25rem', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '0.25rem' }}>Unavailable</span>}
+          </h4>
           <span className="pm-m-price">₹{getDisplayPrice(dish)}</span>
         </div>
         <p>{dish.ai_description || dish.short_description || dish.description || ''}</p>
@@ -438,7 +444,7 @@ const PublicMenu = () => {
   );
 
   const renderMobileDishRow = (dish) => (
-    <article key={`m-dish-${dish.id}`} className="pm-m-dish-row">
+    <article key={`m-dish-${dish.id}`} className="pm-m-dish-row" style={{ opacity: dish.is_available ? 1 : 0.6 }}>
       <button type="button" className="pm-m-dish-thumb" onClick={() => setSelectedDish(dish)}>
         {getBestThumbnail(dish) ? (
           <img src={getBestThumbnail(dish)} alt={dish.name} loading="lazy" />
@@ -461,13 +467,17 @@ const PublicMenu = () => {
             <ScanLine size={16} />
             AR View
           </button>
-          <button
-            type="button"
-            className={`pm-m-add-btn ${addedDishId === dish.id ? 'is-added' : ''}`}
-            onClick={(e) => handleQuickAdd(dish, e)}
-          >
-            {addedDishId === dish.id ? 'Added!' : 'Add to Order'}
-          </button>
+          {dish.is_available ? (
+            <button
+              type="button"
+              className={`pm-m-add-btn ${addedDishId === dish.id ? 'is-added' : ''}`}
+              onClick={(e) => handleQuickAdd(dish, e)}
+            >
+              {addedDishId === dish.id ? 'Added!' : 'Add to Order'}
+            </button>
+          ) : (
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#ef4444' }}>Currently Unavailable</span>
+          )}
         </div>
       </div>
     </article>
@@ -504,7 +514,10 @@ const PublicMenu = () => {
         {index === 0 && <span className="pm-d-hot-badge">Hot Choices</span>}
       </div>
       <div className="pm-d-trend-light-body">
-        <h4>{dish.name}</h4>
+        <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {dish.name}
+          {!dish.is_available && <span style={{ fontSize: '0.65rem', padding: '0.125rem 0.25rem', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '0.25rem' }}>Unavailable</span>}
+        </h4>
         <p className="pm-d-trend-price">₹{getDisplayPrice(dish)}</p>
         <p className="pm-d-trend-desc">
           {dish.ai_description || dish.short_description || dish.description || ''}
@@ -514,7 +527,7 @@ const PublicMenu = () => {
   );
 
   const renderDesktopDishCard = (dish) => (
-    <article key={`d-dish-${dish.id}`} className="pm-d-dish-card">
+    <article key={`d-dish-${dish.id}`} className="pm-d-dish-card" style={{ opacity: dish.is_available ? 1 : 0.6 }}>
       <button type="button" className="pm-d-dish-img" onClick={() => setSelectedDish(dish)}>
         {getBestThumbnail(dish) ? (
           <img src={getBestThumbnail(dish)} alt={dish.name} loading="lazy" />
@@ -540,13 +553,17 @@ const PublicMenu = () => {
           <button type="button" className="pm-d-stack-btn" onClick={() => setSelectedDish(dish)} aria-label="Details">
             <Layers size={18} />
           </button>
-          <button
-            type="button"
-            className={`pm-d-add-btn ${addedDishId === dish.id ? 'is-added' : ''}`}
-            onClick={(e) => handleQuickAdd(dish, e)}
-          >
-            {addedDishId === dish.id ? 'Added!' : 'Add to Order'}
-          </button>
+          {dish.is_available ? (
+            <button
+              type="button"
+              className={`pm-d-add-btn ${addedDishId === dish.id ? 'is-added' : ''}`}
+              onClick={(e) => handleQuickAdd(dish, e)}
+            >
+              {addedDishId === dish.id ? 'Added!' : 'Add to Order'}
+            </button>
+          ) : (
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#ef4444' }}>Currently Unavailable</span>
+          )}
         </div>
       </div>
     </article>
@@ -958,12 +975,20 @@ const PublicMenu = () => {
                
                {/* Order Action Buttons */}
                <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                 <Button onClick={handleAddToTable} variant="outline" style={{ flex: 1 }}>
-                   Add To Table
-                 </Button>
-                 <Button onClick={handleOrderNow} style={{ flex: 1 }}>
-                   Order Now
-                 </Button>
+                 {selectedDish.is_available ? (
+                   <>
+                     <Button onClick={handleAddToTable} variant="outline" style={{ flex: 1 }}>
+                       Add To Table
+                     </Button>
+                     <Button onClick={handleOrderNow} style={{ flex: 1 }}>
+                       Order Now
+                     </Button>
+                   </>
+                 ) : (
+                   <div style={{ width: '100%', padding: '1rem', backgroundColor: '#fee2e2', color: '#991b1b', textAlign: 'center', borderRadius: '0.5rem', fontWeight: 'bold' }}>
+                     Currently Unavailable
+                   </div>
+                 )}
                </div>
             </div>
 
@@ -1015,57 +1040,20 @@ const PublicMenu = () => {
             )}
 
             <div style={{ marginTop: '2rem' }}>
-              <h4 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Customer Reviews</h4>
-              {loadingReviews ? (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>Loading reviews...</p>
-              ) : dishReviews.length === 0 ? (
-                <p style={{ color: 'var(--text-muted)', fontStyle: 'italic', fontSize: '0.875rem' }}>No reviews yet. Be the first to review!</p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {dishReviews.map(r => (
-                    <div key={r.id} style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginBottom: '0.5rem' }}>
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} size={14} fill={i < r.rating ? "#f59e0b" : "#e2e8f0"} color={i < r.rating ? "#f59e0b" : "#e2e8f0"} />
-                        ))}
-                        <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', color: '#64748b' }}>
-                          {new Date(r.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      {r.review && <p style={{ fontSize: '0.875rem', color: '#334155', lineHeight: '1.5' }}>"{r.review}"</p>}
-                    </div>
-                  ))}
+              <Button 
+                variant="outline" 
+                style={{ width: '100%', padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                onClick={() => setIsReviewModalOpen(true)}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Star size={18} fill="#f59e0b" color="#f59e0b" />
+                  <span style={{ fontWeight: 'bold' }}>See Dish Reviews</span>
                 </div>
-              )}
-            </div>
-
-            <div style={{ marginTop: '2rem', padding: '1.5rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem' }}>
-              <h4 style={{ marginBottom: '1rem' }}>Leave a Review</h4>
-              <form onSubmit={handleReviewSubmit}>
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Rating</label>
-                  <select 
-                    value={ratingInput} 
-                    onChange={(e) => setRatingInput(Number(e.target.value))}
-                    style={{ padding: '0.5rem', borderRadius: '0.25rem', border: '1px solid #cbd5e1', width: '100px' }}
-                  >
-                    <option value={5}>5 Stars</option>
-                    <option value={4}>4 Stars</option>
-                    <option value={3}>3 Stars</option>
-                    <option value={2}>2 Stars</option>
-                    <option value={1}>1 Star</option>
-                  </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
+                  <span>{selectedDish.total_reviews} reviews</span>
+                  <span>→</span>
                 </div>
-                <div style={{ marginBottom: '1rem' }}>
-                  <textarea 
-                    placeholder="Tell us what you thought..."
-                    value={reviewInput}
-                    onChange={(e) => setReviewInput(e.target.value)}
-                    style={{ width: '100%', padding: '0.75rem', borderRadius: '0.5rem', border: '1px solid #cbd5e1', resize: 'vertical', minHeight: '80px' }}
-                  ></textarea>
-                </div>
-                <Button type="submit" loading={submittingReview}>Submit Review</Button>
-              </form>
+              </Button>
             </div>
           </div>
         )}
@@ -1077,6 +1065,122 @@ const PublicMenu = () => {
           restaurantId={restaurant.id} 
           onClose={() => setIsARViewerOpen(false)} 
         />
+      )}
+
+      {/* Modern Review Experience Modal */}
+      {isReviewModalOpen && selectedDish && (
+        <div className="pm-review-modal-overlay fade-in" onClick={() => setIsReviewModalOpen(false)}>
+          <div className="pm-review-modal-content slide-up" onClick={e => e.stopPropagation()}>
+            <div className="pm-review-header">
+              <button className="pm-review-close" onClick={() => setIsReviewModalOpen(false)}><X size={24} /></button>
+              <div className="pm-review-dish-info">
+                {getBestThumbnail(selectedDish) && (
+                  <img src={getBestThumbnail(selectedDish)} alt={selectedDish.name} className="pm-review-dish-img" />
+                )}
+                <div>
+                  <h3 className="pm-review-dish-name">{selectedDish.name}</h3>
+                  <div className="pm-review-dish-stats">
+                    <span className="pm-review-avg-rating">
+                      <Star size={16} fill="#f59e0b" color="#f59e0b" />
+                      {parseFloat(selectedDish.average_rating || 0).toFixed(1)}
+                    </span>
+                    <span className="pm-review-total-count">({selectedDish.total_reviews} reviews)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="pm-review-list scroll-hide">
+              {loadingReviews ? (
+                <div className="pm-review-loading"><Loader /></div>
+              ) : dishReviews.length === 0 ? (
+                <div className="pm-review-empty fade-in">
+                  <div className="pm-review-empty-icon"><Star size={48} color="#cbd5e1" /></div>
+                  <h4>No reviews yet</h4>
+                  <p>Be the first to share your thoughts on this dish!</p>
+                  <button className="pm-review-empty-btn" onClick={() => setIsDropReviewOpen(true)}>Drop a Review</button>
+                </div>
+              ) : (
+                dishReviews.map(r => (
+                  <div key={r.id} className="pm-review-card fade-in">
+                    <div className="pm-review-card-header">
+                      <div className="pm-review-avatar">
+                        <User size={20} color="#64748b" />
+                      </div>
+                      <div className="pm-review-meta">
+                        <span className="pm-review-author">Customer</span>
+                        <span className="pm-review-date">{new Date(r.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className="pm-review-stars">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star key={i} size={14} fill={i < r.rating ? "#f59e0b" : "#e2e8f0"} color={i < r.rating ? "#f59e0b" : "#e2e8f0"} />
+                        ))}
+                      </div>
+                    </div>
+                    {r.review && <p className="pm-review-text">"{r.review}"</p>}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pm-review-footer">
+              <button className="pm-review-drop-btn" onClick={() => setIsDropReviewOpen(true)}>
+                <Sparkles size={18} />
+                Drop A Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drop Review Modal / Bottom Sheet */}
+      {isDropReviewOpen && selectedDish && (
+        <div className="pm-drop-review-overlay fade-in" onClick={() => setIsDropReviewOpen(false)}>
+          <div className="pm-drop-review-content slide-up" onClick={e => e.stopPropagation()}>
+            <div className="pm-drop-review-header">
+              <h3>How was the {selectedDish.name}?</h3>
+              <button className="pm-close-btn" onClick={() => setIsDropReviewOpen(false)}><X size={24} /></button>
+            </div>
+            <form onSubmit={handleReviewSubmit} className="pm-drop-review-form">
+              <div className="pm-star-selector">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    className="pm-interactive-star"
+                    onMouseEnter={() => setHoveredStar(star)}
+                    onMouseLeave={() => setHoveredStar(0)}
+                    onClick={() => setRatingInput(star)}
+                  >
+                    <Star 
+                      size={40} 
+                      fill={(hoveredStar || ratingInput) >= star ? "#f59e0b" : "transparent"} 
+                      color={(hoveredStar || ratingInput) >= star ? "#f59e0b" : "#cbd5e1"} 
+                      style={{ transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', transform: (hoveredStar || ratingInput) >= star ? 'scale(1.15)' : 'scale(1)' }}
+                    />
+                  </button>
+                ))}
+              </div>
+              <p className="pm-star-label">
+                {['', 'Terrible', 'Bad', 'Okay', 'Good', 'Amazing!'][hoveredStar || ratingInput]}
+              </p>
+              
+              <div className="pm-review-input-group">
+                <textarea 
+                  className="pm-review-textarea"
+                  placeholder="Share your experience (optional)..."
+                  value={reviewInput}
+                  onChange={(e) => setReviewInput(e.target.value)}
+                  rows="4"
+                ></textarea>
+              </div>
+              
+              <button type="submit" className="pm-review-submit-btn" disabled={submittingReview || ratingInput === 0}>
+                {submittingReview ? <Loader /> : 'Submit Review'}
+              </button>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

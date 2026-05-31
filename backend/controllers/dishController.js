@@ -159,7 +159,9 @@ const updateDish = async (req, res) => {
     }
     
     let ar_video_url = existing[0].ar_video_url;
-    if (req.files && req.files['ar_video']) {
+    if (req.body.remove_ar_video === 'true') {
+      ar_video_url = null;
+    } else if (req.files && req.files['ar_video']) {
       ar_video_url = `/uploads/ar-assets/video/${req.files['ar_video'][0].filename}`;
     }
 
@@ -167,12 +169,18 @@ const updateDish = async (req, res) => {
     let thumbnailUrl = existing[0].thumbnail_url;
     let aiEnhancedImage = existing[0].ai_enhanced_image;
 
-    if (req.files && req.files['image']) {
+    if (req.body.remove_image === 'true') {
+      imageUrl = null;
+      thumbnailUrl = null;
+      aiEnhancedImage = null;
+    } else if (req.files && req.files['image']) {
       imageUrl = '/' + req.files['image'][0].path.replace(/\\/g, '/');
       thumbnailUrl = imageUrl;
     }
 
-    if (req.files && req.files['ar_image']) {
+    if (req.body.remove_ar_image === 'true') {
+      ar_image_url = null;
+    } else if (req.files && req.files['ar_image']) {
       const optimizedPath = await optimizeArImage(req.files['ar_image'][0].path, `ar-${Date.now()}`);
       ar_image_url = optimizedPath;
     }
@@ -214,10 +222,140 @@ const deleteDish = async (req, res) => {
   }
 };
 
+// @desc    Update dish availability
+// @route   PATCH /api/dishes/:id/availability
+// @access  Private
+const updateDishAvailability = async (req, res) => {
+  try {
+    const restaurantId = await getRestaurantId(req.user.id);
+    const dishId = req.params.id;
+
+    const [existing] = await pool.query('SELECT * FROM dishes WHERE id = ? AND restaurant_id = ?', [dishId, restaurantId]);
+    if (existing.length === 0) return res.status(404).json({ message: 'Dish not found or unauthorized' });
+
+    const is_available = req.body.is_available === 'true' || req.body.is_available === true;
+
+    await pool.query('UPDATE dishes SET is_available = ? WHERE id = ?', [is_available, dishId]);
+
+    res.json({ message: 'Dish availability updated', is_available });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// @desc    Bulk Add Dishes
+// @route   POST /api/dishes/bulk
+// @access  Private
+const bulkAddDishes = async (req, res) => {
+  const connection = await pool.getConnection();
+  try {
+    const restaurantId = await getRestaurantId(req.user.id);
+    if (!restaurantId) return res.status(400).json({ message: 'Please create a restaurant profile first' });
+
+    const { dishes } = req.body;
+    if (!dishes || !Array.isArray(dishes) || dishes.length === 0) {
+      return res.status(400).json({ message: 'No dishes provided for bulk import' });
+    }
+
+    await connection.beginTransaction();
+
+    let importedCount = 0;
+    let failedCount = 0;
+    const errors = [];
+
+    const [existingDishes] = await connection.query('SELECT name FROM dishes WHERE restaurant_id = ?', [restaurantId]);
+    const existingNames = new Set(existingDishes.map(d => d.name.toLowerCase()));
+
+    for (const [index, dish] of dishes.entries()) {
+      try {
+        const name = dish.name;
+        if (!name) {
+          failedCount++;
+          errors.push(`Row ${index + 1}: Name is required`);
+          continue;
+        }
+
+        const duplicateAction = req.body.duplicate_action || 'skip'; 
+        if (existingNames.has(name.toLowerCase())) {
+          if (duplicateAction === 'skip') {
+            failedCount++;
+            errors.push(`Row ${index + 1}: Dish '${name}' already exists (skipped)`);
+            continue;
+          } else if (duplicateAction === 'replace') {
+            await connection.query('DELETE FROM dishes WHERE name = ? AND restaurant_id = ?', [name, restaurantId]);
+          }
+        }
+
+        const price = roundMoney(dish.price || 0);
+        const category = dish.category || 'Uncategorized';
+        
+        const has_full_plate = dish.has_full_plate === 'true' || dish.has_full_plate === true || dish.has_full_plate === '1' || dish.has_full_plate === 1 || dish.has_full_plate === 'Yes';
+        const has_half_plate = dish.has_half_plate === 'true' || dish.has_half_plate === true || dish.has_half_plate === '1' || dish.has_half_plate === 1 || dish.has_half_plate === 'Yes';
+        const full_plate_price = roundMoney(dish.full_plate_price || price);
+        const half_plate_price = roundMoney(dish.half_plate_price || 0);
+
+        const short_description = dish.description || null;
+        const description = dish.description || null;
+        const ingredients = dish.ingredients || null;
+        const preparation_time = parseInt(dish.preparation_time) || null;
+        const spice_level = parseInt(dish.spice_level) || 0;
+        
+        const is_available = dish.is_available === 'true' || dish.is_available === true || dish.is_available === '1' || dish.is_available === 1 || dish.is_available === 'Yes';
+        const is_featured = dish.is_featured === 'true' || dish.is_featured === true || dish.is_featured === '1' || dish.is_featured === 1 || dish.is_featured === 'Yes';
+
+        let imageUrl = dish.image_url || null;
+        let thumbnailUrl = dish.image_url || null;
+        
+        const ar_enabled = dish.ar_enabled === 'true' || dish.ar_enabled === true || dish.ar_enabled === '1' || dish.ar_enabled === 1 || dish.ar_enabled === 'Yes';
+        const ar_asset_type = (dish.ar_asset_type || 'pseudo-3d').toLowerCase();
+        let ar_image_url = null;
+        let ar_video_url = null;
+        
+        if (ar_asset_type === 'image' || ar_asset_type === 'sprite-sheet' || ar_asset_type === 'pseudo-3d') {
+          ar_image_url = dish.ar_asset_url || null;
+        } else if (ar_asset_type === 'video') {
+          ar_video_url = dish.ar_asset_url || null;
+        }
+
+        await connection.query(
+          `INSERT INTO dishes 
+          (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, preparation_time, image_url, thumbnail_url, is_available, is_featured, ar_enabled, ar_image_url, ar_asset_type, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [restaurantId, name, short_description, description, ingredients, category, price, spice_level, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ar_enabled, ar_image_url, ar_asset_type, ar_video_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price]
+        );
+        importedCount++;
+      } catch (err) {
+        console.error('Row import error:', err);
+        failedCount++;
+        errors.push(`Row ${index + 1}: Server error during import`);
+      }
+    }
+
+    await connection.commit();
+
+    res.status(200).json({ 
+      message: 'Bulk import completed',
+      imported: importedCount,
+      failed: failedCount,
+      errors: errors
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error(error);
+    res.status(500).json({ message: 'Server error during bulk import' });
+  } finally {
+    connection.release();
+  }
+};
+
 module.exports = {
   getDishesByRestaurant,
   getDishById,
   addDish,
+  bulkAddDishes,
   updateDish,
-  deleteDish
+  deleteDish,
+  updateDishAvailability
 };
