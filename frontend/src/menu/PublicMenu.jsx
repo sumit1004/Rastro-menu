@@ -1015,7 +1015,7 @@ const PublicMenu = () => {
                </div>
             </div>
 
-            {selectedDish.enable_3d_ar && ((selectedDish.library_glb_url || selectedDish.glb_model_url) || (selectedDish.library_usdz_url || selectedDish.usdz_model_url)) ? (
+            {selectedDish.enable_3d_ar && selectedDish.ar_model?.glb_url ? (
               <Button 
                 onClick={() => {
                   setIsARViewerOpen(true);
@@ -1036,8 +1036,8 @@ const PublicMenu = () => {
             )}
 
             {/* Model Preloading */}
-            {selectedDish.enable_3d_ar && (selectedDish.library_glb_url || selectedDish.glb_model_url) && (
-              <link rel="preload" href={selectedDish.library_glb_url || selectedDish.glb_model_url} as="fetch" crossOrigin="anonymous" />
+            {selectedDish.enable_3d_ar && selectedDish.ar_model?.glb_url && (
+              <link rel="preload" href={selectedDish.ar_model.glb_url} as="fetch" crossOrigin="anonymous" />
             )}
 
             {/* Complete Your Meal Section */}
@@ -1147,8 +1147,8 @@ const PublicMenu = () => {
           
           <div style={{ flex: 1, position: 'relative' }}>
             <model-viewer
-              src={(selectedDish.library_glb_url || selectedDish.glb_model_url) || undefined}
-              ios-src={(selectedDish.library_usdz_url || selectedDish.usdz_model_url) || undefined}
+              src={selectedDish.ar_model?.glb_url || undefined}
+              ios-src={selectedDish.ar_model?.usdz_url || undefined}
               alt={`A 3D model of ${selectedDish.name}`}
               ar
               ar-modes="webxr scene-viewer quick-look"
@@ -1161,19 +1161,19 @@ const PublicMenu = () => {
               camera-controls
               auto-rotate="false"
               orientation={
-                selectedDish.ar_model_id 
-                  ? `${selectedDish.normalized_rotation_x || 0}rad ${selectedDish.normalized_rotation_y || 0}rad ${selectedDish.normalized_rotation_z || 0}rad`
+                selectedDish.ar_model_id && selectedDish.ar_model 
+                  ? `${selectedDish.ar_model.normalized_rotation_x || 0}rad ${selectedDish.ar_model.normalized_rotation_y || 0}rad ${selectedDish.ar_model.normalized_rotation_z || 0}rad`
                   : "0 180deg 0"
               }
               style={{ width: '100%', height: '100%', backgroundColor: '#f0f0f0' }}
               onLoad={(e) => {
                 const viewer = e.target;
                 
-                if (selectedDish.ar_model_id) {
+                if (selectedDish.ar_model_id && selectedDish.ar_model) {
                   // Apply persistent library transforms
-                  const scaleVal = selectedDish.normalized_scale || 1.0;
+                  const scaleVal = selectedDish.ar_model.normalized_scale || 1.0;
                   viewer.scale = `${scaleVal} ${scaleVal} ${scaleVal}`;
-                  viewer.modelPosition = `0 ${selectedDish.normalized_height_offset || 0} 0`;
+                  viewer.modelPosition = `0 ${selectedDish.ar_model.normalized_height_offset || 0} 0`;
                 } else {
                   // Automatic Size Normalization
                   const size = viewer.getDimensions();

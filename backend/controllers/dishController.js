@@ -19,6 +19,7 @@ const getDishesByRestaurant = async (req, res) => {
     const { restaurantId } = req.params;
     const [dishes] = await pool.query(
       `SELECT d.*, a.glb_url as library_glb_url, a.usdz_url as library_usdz_url,
+              a.thumbnail_url as library_thumbnail_url, a.dish_name as library_dish_name,
               a.normalized_rotation_x, a.normalized_rotation_y, a.normalized_rotation_z,
               a.normalized_scale, a.normalized_height_offset
        FROM dishes d
@@ -26,7 +27,48 @@ const getDishesByRestaurant = async (req, res) => {
        WHERE d.restaurant_id = ? ORDER BY d.created_at DESC`, 
       [restaurantId]
     );
-    res.json(dishes);
+
+    const formattedDishes = dishes.map(dish => {
+      let ar_model = null;
+
+      if (dish.ar_model_id && (dish.library_glb_url || dish.glb_model_url)) {
+        ar_model = {
+          id: dish.ar_model_id,
+          glb_url: dish.library_glb_url || dish.glb_model_url,
+          usdz_url: dish.library_usdz_url || dish.usdz_model_url,
+          thumbnail_url: dish.library_thumbnail_url,
+          dish_name: dish.library_dish_name,
+          normalized_rotation_x: dish.normalized_rotation_x,
+          normalized_rotation_y: dish.normalized_rotation_y,
+          normalized_rotation_z: dish.normalized_rotation_z,
+          normalized_scale: dish.normalized_scale,
+          normalized_height_offset: dish.normalized_height_offset
+        };
+      } else if (dish.glb_model_url) {
+        ar_model = {
+          glb_url: dish.glb_model_url,
+          usdz_url: dish.usdz_model_url
+        };
+      }
+
+      // Remove flat fields from response to keep it clean
+      delete dish.library_glb_url;
+      delete dish.library_usdz_url;
+      delete dish.library_thumbnail_url;
+      delete dish.library_dish_name;
+      delete dish.normalized_rotation_x;
+      delete dish.normalized_rotation_y;
+      delete dish.normalized_rotation_z;
+      delete dish.normalized_scale;
+      delete dish.normalized_height_offset;
+
+      return {
+        ...dish,
+        ar_model
+      };
+    });
+
+    res.json(formattedDishes);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
