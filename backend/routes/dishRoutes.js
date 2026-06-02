@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { getDishesByRestaurant, getDishById, addDish, bulkAddDishes, updateDish, deleteDish, updateDishAvailability } = require('../controllers/dishController');
+const { getDishesByRestaurant, getDishById, addDish, bulkAddDishes, updateDish, deleteDish, updateDishAvailability, searchArModels } = require('../controllers/dishController');
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../middleware/uploadMiddleware');
 const { checkLimit } = require('../middleware/planMiddleware');
 const { getDishCount } = require('../utils/usageHelper');
 
+router.get('/ar-models/search', protect, searchArModels);
 router.get('/restaurant/:restaurantId', getDishesByRestaurant);
 router.get('/:id', getDishById);
 

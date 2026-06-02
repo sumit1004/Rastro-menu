@@ -1015,7 +1015,7 @@ const PublicMenu = () => {
                </div>
             </div>
 
-            {selectedDish.enable_3d_ar && (selectedDish.glb_model_url || selectedDish.usdz_model_url) ? (
+            {selectedDish.enable_3d_ar && ((selectedDish.library_glb_url || selectedDish.glb_model_url) || (selectedDish.library_usdz_url || selectedDish.usdz_model_url)) ? (
               <Button 
                 onClick={() => {
                   setIsARViewerOpen(true);
@@ -1036,8 +1036,8 @@ const PublicMenu = () => {
             )}
 
             {/* Model Preloading */}
-            {selectedDish.enable_3d_ar && selectedDish.glb_model_url && (
-              <link rel="preload" href={selectedDish.glb_model_url} as="fetch" crossOrigin="anonymous" />
+            {selectedDish.enable_3d_ar && (selectedDish.library_glb_url || selectedDish.glb_model_url) && (
+              <link rel="preload" href={selectedDish.library_glb_url || selectedDish.glb_model_url} as="fetch" crossOrigin="anonymous" />
             )}
 
             {/* Complete Your Meal Section */}
@@ -1147,8 +1147,8 @@ const PublicMenu = () => {
           
           <div style={{ flex: 1, position: 'relative' }}>
             <model-viewer
-              src={selectedDish.glb_model_url || undefined}
-              ios-src={selectedDish.usdz_model_url || undefined}
+              src={(selectedDish.library_glb_url || selectedDish.glb_model_url) || undefined}
+              ios-src={(selectedDish.library_usdz_url || selectedDish.usdz_model_url) || undefined}
               alt={`A 3D model of ${selectedDish.name}`}
               ar
               ar-modes="webxr scene-viewer quick-look"

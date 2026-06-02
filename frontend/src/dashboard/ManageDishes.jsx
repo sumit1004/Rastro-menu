@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils, Sparkles, Lock, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Image as ImageIcon, Utensils, Sparkles, Lock, X, Search } from 'lucide-react';
 import ImageCropper from '../components/ImageCropper';
 import api, { getImageUrl } from '../services/api';
 import Card from '../components/Card';
@@ -35,7 +35,8 @@ const ManageDishes = () => {
     half_plate_price: '',
     dish_role: '',
     cuisine_type: '',
-    meal_type: ''
+    meal_type: '',
+    ar_model_id: ''
   });
   const [imageFile, setImageFile] = useState(null);
   const [arImageFile, setArImageFile] = useState(null);
@@ -55,6 +56,28 @@ const ManageDishes = () => {
     searchQuery: '',
     saving: false
   });
+
+  const [arModels, setArModels] = useState([]);
+  const [searchingAr, setSearchingAr] = useState(false);
+  const [showCustomAr, setShowCustomAr] = useState(false);
+
+  useEffect(() => {
+    if (formData.enable_3d_ar && formData.name) {
+      const searchAr = async () => {
+        setSearchingAr(true);
+        try {
+          const { data } = await api.get(`/dishes/ar-models/search?query=${encodeURIComponent(formData.name)}`);
+          setArModels(data);
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setSearchingAr(false);
+        }
+      };
+      const timeoutId = setTimeout(searchAr, 500);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [formData.name, formData.enable_3d_ar]);
 
   const toggleAvailability = async (dish) => {
     try {
@@ -130,22 +153,21 @@ const ManageDishes = () => {
     if (dish) {
       setEditingId(dish.id);
       setFormData({
-        name: dish.name, 
-        description: dish.ai_description || dish.description || dish.short_description || '', 
-        ingredients: dish.ingredients || '',
-        category: dish.ai_category || dish.category || '', price: dish.price, spice_level: dish.spice_level, 
+        name: dish.name || '', description: dish.description || '', ingredients: dish.ingredients || '',
+        category: dish.category || '', price: dish.price || '', spice_level: dish.spice_level || '0', 
         calories: dish.calories || '', preparation_time: dish.preparation_time || '', 
         is_available: dish.is_available, is_featured: dish.is_featured,
-        ar_enabled: !!dish.ar_enabled,
-        enable_3d_ar: !!dish.enable_3d_ar,
+        ar_enabled: dish.ar_enabled || false,
+        enable_3d_ar: dish.enable_3d_ar || false,
         taste_tags: typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : (dish.taste_tags || []),
-        has_full_plate: dish.has_full_plate !== undefined ? dish.has_full_plate : true,
-        has_half_plate: !!dish.has_half_plate,
-        full_plate_price: dish.full_plate_price || dish.price,
+        has_full_plate: dish.has_full_plate,
+        has_half_plate: dish.has_half_plate,
+        full_plate_price: dish.full_plate_price || '',
         half_plate_price: dish.half_plate_price || '',
         dish_role: dish.dish_role || '',
         cuisine_type: dish.cuisine_type || '',
-        meal_type: dish.meal_type || ''
+        meal_type: dish.meal_type || '',
+        ar_model_id: dish.ar_model_id || ''
       });
       setExistingAssets({ image: dish.image_url, arImage: dish.ar_image_url, glbModel: dish.glb_model_url, usdzModel: dish.usdz_model_url });
     } else {
@@ -163,7 +185,8 @@ const ManageDishes = () => {
         half_plate_price: '',
         dish_role: '',
         cuisine_type: '',
-        meal_type: ''
+        meal_type: '',
+        ar_model_id: ''
       });
       setExistingAssets({ image: null, arImage: null, glbModel: null, usdzModel: null });
     }
@@ -196,6 +219,8 @@ const ManageDishes = () => {
     if (removeAssets.arImage) submitData.append('remove_ar_image', 'true');
     if (removeAssets.glbModel) submitData.append('remove_glb_model', 'true');
     if (removeAssets.usdzModel) submitData.append('remove_usdz_model', 'true');
+    
+    if (formData.ar_model_id) submitData.append('ar_model_id', formData.ar_model_id);
 
     try {
       let dishId = editingId;
@@ -508,42 +533,92 @@ const ManageDishes = () => {
             
             {formData.enable_3d_ar && (
               <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                  <div>
-                    <label className="form-label">.GLB Model (Android/WebXR)</label>
-                    {existingAssets.glbModel && !removeAssets.glbModel && !glbModelFile && (
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        <span style={{ color: '#16a34a', fontSize: '0.875rem' }}>✓ Existing Model Uploaded</span>
-                        <button type="button" onClick={() => setRemoveAssets({...removeAssets, glbModel: true})} style={{ marginLeft: '1rem', color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>Remove</button>
-                      </div>
-                    )}
-                    <input type="file" accept=".glb,.gltf" onChange={(e) => {
-                      if (e.target.files[0] && e.target.files[0].size > 15 * 1024 * 1024) {
-                        alert("File exceeds 15MB limit!");
-                        e.target.value = null;
-                        return;
-                      }
-                      setGlbModelFile(e.target.files[0]);
-                    }} className="form-control" />
-                  </div>
-                  <div>
-                    <label className="form-label">.USDZ Model (iOS Quick Look)</label>
-                    {existingAssets.usdzModel && !removeAssets.usdzModel && !usdzModelFile && (
-                      <div style={{ marginBottom: '0.5rem' }}>
-                        <span style={{ color: '#16a34a', fontSize: '0.875rem' }}>✓ Existing USDZ Uploaded</span>
-                        <button type="button" onClick={() => setRemoveAssets({...removeAssets, usdzModel: true})} style={{ marginLeft: '1rem', color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>Remove</button>
-                      </div>
-                    )}
-                    <input type="file" accept=".usdz" onChange={(e) => {
-                      if (e.target.files[0] && e.target.files[0].size > 15 * 1024 * 1024) {
-                        alert("File exceeds 15MB limit!");
-                        e.target.value = null;
-                        return;
-                      }
-                      setUsdzModelFile(e.target.files[0]);
-                    }} className="form-control" />
-                  </div>
+                
+                {/* Central Library Integration */}
+                <div style={{ marginBottom: '1rem' }}>
+                  <h5 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <Search size={16} /> Central AR Library Search
+                  </h5>
+                  {searchingAr ? (
+                    <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>Searching library...</div>
+                  ) : arModels.length > 0 ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem', maxHeight: '300px', overflowY: 'auto', padding: '0.5rem' }}>
+                      {arModels.map(model => (
+                        <div 
+                          key={model.id} 
+                          onClick={() => { setFormData({...formData, ar_model_id: model.id}); setShowCustomAr(false); }}
+                          style={{ border: formData.ar_model_id === model.id ? '2px solid #4f46e5' : '1px solid #cbd5e1', borderRadius: '0.5rem', overflow: 'hidden', cursor: 'pointer', background: 'white' }}
+                        >
+                          <div style={{ height: '100px', background: '#f1f5f9', position: 'relative' }}>
+                            <model-viewer src={model.glb_url} style={{ width: '100%', height: '100%' }}></model-viewer>
+                          </div>
+                          <div style={{ padding: '0.5rem', fontSize: '0.875rem', textAlign: 'center', fontWeight: formData.ar_model_id === model.id ? 600 : 400 }}>
+                            {model.dish_name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ color: '#64748b', fontSize: '0.875rem', margin: 0 }}>No matching models found in the library for "{formData.name}".</p>
+                  )}
+                  
+                  {formData.ar_model_id && (
+                    <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#dcfce7', color: '#166534', borderRadius: '0.5rem', fontSize: '0.875rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>✓ Using Library Model (ID: {formData.ar_model_id})</span>
+                      <button type="button" onClick={() => setFormData({...formData, ar_model_id: ''})} style={{ background: 'none', border: 'none', color: '#166534', cursor: 'pointer', textDecoration: 'underline' }}>Clear</button>
+                    </div>
+                  )}
                 </div>
+
+                {!formData.ar_model_id && (
+                  <div style={{ borderTop: '1px dashed #cbd5e1', paddingTop: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                      <h5 style={{ margin: 0 }}>Custom Model Upload (Fallback)</h5>
+                      <button type="button" onClick={() => setShowCustomAr(!showCustomAr)} style={{ background: 'none', border: 'none', color: '#4f46e5', cursor: 'pointer', fontSize: '0.875rem', fontWeight: 600 }}>
+                        {showCustomAr ? 'Hide Custom Upload' : 'Show Custom Upload'}
+                      </button>
+                    </div>
+
+                    {showCustomAr && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                        <div>
+                          <label className="form-label">.GLB Model (Android/WebXR)</label>
+                          {existingAssets.glbModel && !removeAssets.glbModel && !glbModelFile && (
+                            <div style={{ marginBottom: '0.5rem' }}>
+                              <span style={{ color: '#16a34a', fontSize: '0.875rem' }}>✓ Existing Model Uploaded</span>
+                              <button type="button" onClick={() => setRemoveAssets({...removeAssets, glbModel: true})} style={{ marginLeft: '1rem', color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>Remove</button>
+                            </div>
+                          )}
+                          <input type="file" accept=".glb,.gltf" onChange={(e) => {
+                            if (e.target.files[0] && e.target.files[0].size > 15 * 1024 * 1024) {
+                              alert("File exceeds 15MB limit!");
+                              e.target.value = null;
+                              return;
+                            }
+                            setGlbModelFile(e.target.files[0]);
+                          }} className="form-control" />
+                        </div>
+                        <div>
+                          <label className="form-label">.USDZ Model (iOS Quick Look)</label>
+                          {existingAssets.usdzModel && !removeAssets.usdzModel && !usdzModelFile && (
+                            <div style={{ marginBottom: '0.5rem' }}>
+                              <span style={{ color: '#16a34a', fontSize: '0.875rem' }}>✓ Existing USDZ Uploaded</span>
+                              <button type="button" onClick={() => setRemoveAssets({...removeAssets, usdzModel: true})} style={{ marginLeft: '1rem', color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>Remove</button>
+                            </div>
+                          )}
+                          <input type="file" accept=".usdz" onChange={(e) => {
+                            if (e.target.files[0] && e.target.files[0].size > 15 * 1024 * 1024) {
+                              alert("File exceeds 15MB limit!");
+                              e.target.value = null;
+                              return;
+                            }
+                            setUsdzModelFile(e.target.files[0]);
+                          }} className="form-control" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <div style={{ padding: '0.5rem', backgroundColor: '#eef2ff', color: '#4338ca', fontSize: '0.875rem', borderRadius: '0.25rem' }}>
                   <strong>Auto-Optimization:</strong> Models will be automatically scaled to real-world plate size (~25cm) and grounded properly. No manual adjustments needed.

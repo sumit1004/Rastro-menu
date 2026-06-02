@@ -4,6 +4,7 @@ import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 import Loader from '../components/Loader';
 import PlanEditModal from './PlanEditModal';
+import AdminARModelLibrary from './AdminARModelLibrary';
 import {
   Users, Activity, CheckCircle, BrainCircuit,
   UtensilsCrossed, Star, Eye, Edit2, BarChart2
@@ -129,6 +130,12 @@ const AdminDashboard = () => {
         >
           <Users size={16} /> Restaurant CRM
         </button>
+        <button
+          className={`admin-tab ${activeTab === 'ar-library' ? 'active' : ''}`}
+          onClick={() => setActiveTab('ar-library')}
+        >
+          <Star size={16} /> AR Library
+        </button>
       </div>
 
       {error && <div className="admin-error">{error}</div>}
@@ -252,6 +259,11 @@ const AdminDashboard = () => {
             </div>
           )}
         </>
+      )}
+
+      {/* AR LIBRARY TAB */}
+      {activeTab === 'ar-library' && (
+        <AdminARModelLibrary />
       )}
 
       {/* Plan Edit Modal */}

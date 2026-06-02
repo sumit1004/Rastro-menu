@@ -17,7 +17,13 @@ const getRestaurantId = async (userId) => {
 const getDishesByRestaurant = async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    const [dishes] = await pool.query('SELECT * FROM dishes WHERE restaurant_id = ? ORDER BY created_at DESC', [restaurantId]);
+    const [dishes] = await pool.query(
+      `SELECT d.*, a.glb_url as library_glb_url, a.usdz_url as library_usdz_url 
+       FROM dishes d
+       LEFT JOIN ar_model_library a ON d.ar_model_id = a.id
+       WHERE d.restaurant_id = ? ORDER BY d.created_at DESC`, 
+      [restaurantId]
+    );
     res.json(dishes);
   } catch (error) {
     console.error(error);
@@ -73,6 +79,7 @@ const addDish = async (req, res) => {
     let ar_image_url = null;
     
     const enable_3d_ar = req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true;
+    const ar_model_id = req.body.ar_model_id || null;
 
     let imageUrl = null;
     let thumbnailUrl = null;
@@ -108,9 +115,9 @@ const addDish = async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO dishes 
-      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glb_model_url, usdz_model_url, enable_3d_ar) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glbModelUrl, usdzModelUrl, enable_3d_ar]
+      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glb_model_url, usdz_model_url, enable_3d_ar, ar_model_id) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glbModelUrl, usdzModelUrl, enable_3d_ar, ar_model_id]
     );
 
     res.status(201).json({ message: 'Dish added', id: result.insertId });
@@ -164,6 +171,7 @@ const updateDish = async (req, res) => {
     let ar_image_url = existing[0].ar_image_url;
 
     const enable_3d_ar = req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true;
+    const ar_model_id = req.body.ar_model_id || null;
 
     let imageUrl = existing[0].image_url;
     let thumbnailUrl = existing[0].thumbnail_url;
@@ -210,9 +218,9 @@ const updateDish = async (req, res) => {
 
     await pool.query(
       `UPDATE dishes SET 
-      name=?, short_description=?, description=?, ingredients=?, category=?, price=?, spice_level=?, calories=?, preparation_time=?, image_url=?, thumbnail_url=?, is_available=?, is_featured=?, ai_description=?, taste_tags=?, ai_category=?, ai_enhanced_image=?, ar_enabled=?, ar_image_url=?, has_full_plate=?, has_half_plate=?, full_plate_price=?, half_plate_price=?, dish_role=?, cuisine_type=?, meal_type=?, glb_model_url=?, usdz_model_url=?, enable_3d_ar=?
+      name=?, short_description=?, description=?, ingredients=?, category=?, price=?, spice_level=?, calories=?, preparation_time=?, image_url=?, thumbnail_url=?, is_available=?, is_featured=?, ai_description=?, taste_tags=?, ai_category=?, ai_enhanced_image=?, ar_enabled=?, ar_image_url=?, has_full_plate=?, has_half_plate=?, full_plate_price=?, half_plate_price=?, dish_role=?, cuisine_type=?, meal_type=?, glb_model_url=?, usdz_model_url=?, enable_3d_ar=?, ar_model_id=?
       WHERE id=? AND restaurant_id=?`,
-      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glbModelUrl, usdzModelUrl, enable_3d_ar, dishId, restaurantId]
+      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glbModelUrl, usdzModelUrl, enable_3d_ar, ar_model_id, dishId, restaurantId]
     );
 
     res.json({ message: 'Dish updated' });
@@ -252,15 +260,32 @@ const updateDishAvailability = async (req, res) => {
   try {
     const restaurantId = await getRestaurantId(req.user.id);
     const dishId = req.params.id;
+    const { is_available } = req.body;
 
     const [existing] = await pool.query('SELECT * FROM dishes WHERE id = ? AND restaurant_id = ?', [dishId, restaurantId]);
     if (existing.length === 0) return res.status(404).json({ message: 'Dish not found or unauthorized' });
 
-    const is_available = req.body.is_available === 'true' || req.body.is_available === true;
-
     await pool.query('UPDATE dishes SET is_available = ? WHERE id = ?', [is_available, dishId]);
+    res.json({ message: 'Dish availability updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
 
-    res.json({ message: 'Dish availability updated', is_available });
+// @desc    Search AR models in central library
+// @route   GET /api/dishes/ar-models/search
+// @access  Private
+const searchArModels = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) return res.json([]);
+    const searchTerm = `%${query}%`;
+    const [models] = await pool.query(
+      'SELECT id, dish_name, category, thumbnail_url, preview_image, glb_url FROM ar_model_library WHERE dish_name LIKE ? OR category LIKE ? OR tags LIKE ? LIMIT 10',
+      [searchTerm, searchTerm, searchTerm]
+    );
+    res.json(models);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -375,6 +400,25 @@ const bulkAddDishes = async (req, res) => {
   }
 };
 
+// @desc    Search AR models in central library
+// @route   GET /api/dishes/ar-models/search
+// @access  Private
+const searchArModels = async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) return res.json([]);
+    const searchTerm = `%${query}%`;
+    const [models] = await pool.query(
+      'SELECT id, dish_name, category, thumbnail_url, preview_image, glb_url FROM ar_model_library WHERE dish_name LIKE ? OR category LIKE ? OR tags LIKE ? LIMIT 10',
+      [searchTerm, searchTerm, searchTerm]
+    );
+    res.json(models);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   getDishesByRestaurant,
   getDishById,
@@ -382,5 +426,6 @@ module.exports = {
   bulkAddDishes,
   updateDish,
   deleteDish,
-  updateDishAvailability
+  updateDishAvailability,
+  searchArModels
 };

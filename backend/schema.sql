@@ -30,6 +30,22 @@ CREATE TABLE IF NOT EXISTS restaurants (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS ar_model_library (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    dish_name VARCHAR(255) NOT NULL,
+    dish_slug VARCHAR(255) UNIQUE NOT NULL,
+    category VARCHAR(255),
+    glb_url TEXT NOT NULL,
+    usdz_url TEXT NULL,
+    thumbnail_url TEXT NULL,
+    preview_image TEXT NULL,
+    tags TEXT NULL,
+    optimized BOOLEAN DEFAULT TRUE,
+    polygon_count INT NULL,
+    file_size_mb DECIMAL(10,2) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
 CREATE TABLE IF NOT EXISTS dishes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     restaurant_id INT NOT NULL,
@@ -61,8 +77,10 @@ CREATE TABLE IF NOT EXISTS dishes (
     model_scale VARCHAR(50) NULL,
     model_rotation VARCHAR(50) NULL,
     model_height_offset VARCHAR(50) NULL,
+    ar_model_id INT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
+    FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
+    FOREIGN KEY (ar_model_id) REFERENCES ar_model_library(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS reviews (
