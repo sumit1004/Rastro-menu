@@ -81,7 +81,7 @@ const addDish = async (req, res) => {
     let ar_image_url = null;
     
     const enable_3d_ar = req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true;
-    const ar_model_id = req.body.ar_model_id || null;
+    const ar_model_id = Array.isArray(req.body.ar_model_id) ? req.body.ar_model_id[0] : (req.body.ar_model_id || null);
 
     let imageUrl = null;
     let thumbnailUrl = null;
@@ -173,7 +173,7 @@ const updateDish = async (req, res) => {
     let ar_image_url = existing[0].ar_image_url;
 
     const enable_3d_ar = req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true;
-    const ar_model_id = req.body.ar_model_id || null;
+    const ar_model_id = Array.isArray(req.body.ar_model_id) ? req.body.ar_model_id[0] : (req.body.ar_model_id || null);
 
     let imageUrl = existing[0].image_url;
     let thumbnailUrl = existing[0].thumbnail_url;

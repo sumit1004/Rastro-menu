@@ -219,8 +219,6 @@ const ManageDishes = () => {
     if (removeAssets.arImage) submitData.append('remove_ar_image', 'true');
     if (removeAssets.glbModel) submitData.append('remove_glb_model', 'true');
     if (removeAssets.usdzModel) submitData.append('remove_usdz_model', 'true');
-    
-    if (formData.ar_model_id) submitData.append('ar_model_id', formData.ar_model_id);
 
     try {
       let dishId = editingId;
