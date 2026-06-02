@@ -134,5 +134,35 @@ server.listen(PORT, async () => {
   if (!process.env.RESEND_API_KEY) {
     console.warn('[email] RESEND_API_KEY is not set. Password reset emails may fail.');
   }
+
+  // Auto-migrate: ensure ar_model_library has normalized columns
+  try {
+    const pool = require('./config/db');
+    const [cols] = await pool.query(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'ar_model_library'
+        AND COLUMN_NAME IN ('normalized_rotation_x','normalized_rotation_y','normalized_rotation_z','normalized_scale','normalized_height_offset')
+    `);
+    const existingCols = cols.map(c => c.COLUMN_NAME);
+    const toAdd = [
+      { name: 'normalized_rotation_x',    def: 'DECIMAL(10,4) DEFAULT 0.0000' },
+      { name: 'normalized_rotation_y',    def: 'DECIMAL(10,4) DEFAULT 0.0000' },
+      { name: 'normalized_rotation_z',    def: 'DECIMAL(10,4) DEFAULT 0.0000' },
+      { name: 'normalized_scale',          def: 'DECIMAL(10,4) DEFAULT 1.0000' },
+      { name: 'normalized_height_offset',  def: 'DECIMAL(10,4) DEFAULT 0.0000' },
+    ].filter(c => !existingCols.includes(c.name));
+
+    for (const col of toAdd) {
+      await pool.query(`ALTER TABLE ar_model_library ADD COLUMN ${col.name} ${col.def}`);
+      console.log(`[migration] Added column ar_model_library.${col.name}`);
+    }
+    if (toAdd.length === 0) {
+      console.log('[migration] ar_model_library schema is up to date.');
+    }
+  } catch (migErr) {
+    console.warn('[migration] Could not verify/migrate ar_model_library columns:', migErr.message);
+  }
 });
 

@@ -17,63 +17,116 @@ const getRestaurantId = async (userId) => {
 const getDishesByRestaurant = async (req, res) => {
   try {
     const { restaurantId } = req.params;
-    const [dishes] = await pool.query(
-      `SELECT d.*, a.glb_url as library_glb_url, a.usdz_url as library_usdz_url,
-              a.thumbnail_url as library_thumbnail_url, a.dish_name as library_dish_name,
-              a.normalized_rotation_x, a.normalized_rotation_y, a.normalized_rotation_z,
-              a.normalized_scale, a.normalized_height_offset
-       FROM dishes d
-       LEFT JOIN ar_model_library a ON d.ar_model_id = a.id
-       WHERE d.restaurant_id = ? ORDER BY d.created_at DESC`, 
-      [restaurantId]
-    );
+    
+    // Use IFNULL for optional normalized columns to prevent query failure if columns don't exist yet
+    // Primary query with full normalized data
+    let dishes;
+    try {
+      [dishes] = await pool.query(
+        `SELECT d.*,
+                a.glb_url        AS library_glb_url,
+                a.usdz_url       AS library_usdz_url,
+                a.thumbnail_url  AS library_thumbnail_url,
+                a.dish_name      AS library_dish_name,
+                IFNULL(a.normalized_rotation_x, 0)    AS normalized_rotation_x,
+                IFNULL(a.normalized_rotation_y, 0)    AS normalized_rotation_y,
+                IFNULL(a.normalized_rotation_z, 0)    AS normalized_rotation_z,
+                IFNULL(a.normalized_scale, 1.0)       AS normalized_scale,
+                IFNULL(a.normalized_height_offset, 0) AS normalized_height_offset
+         FROM dishes d
+         LEFT JOIN ar_model_library a ON d.ar_model_id = a.id
+         WHERE d.restaurant_id = ?
+         ORDER BY d.created_at DESC`,
+        [restaurantId]
+      );
+    } catch (queryErr) {
+      // Fallback: normalized columns may not exist yet in the DB — use basic join
+      console.warn('Full AR query failed, falling back to basic join:', queryErr.message);
+      [dishes] = await pool.query(
+        `SELECT d.*,
+                a.glb_url       AS library_glb_url,
+                a.usdz_url      AS library_usdz_url,
+                a.thumbnail_url AS library_thumbnail_url,
+                a.dish_name     AS library_dish_name,
+                0               AS normalized_rotation_x,
+                0               AS normalized_rotation_y,
+                0               AS normalized_rotation_z,
+                1.0             AS normalized_scale,
+                0               AS normalized_height_offset
+         FROM dishes d
+         LEFT JOIN ar_model_library a ON d.ar_model_id = a.id
+         WHERE d.restaurant_id = ?
+         ORDER BY d.created_at DESC`,
+        [restaurantId]
+      );
+    }
 
     const formattedDishes = dishes.map(dish => {
       let ar_model = null;
 
-      if (dish.ar_model_id && (dish.library_glb_url || dish.glb_model_url)) {
+      // Build ar_model from library JOIN (preferred) or legacy direct upload fields
+      if (dish.ar_model_id && dish.library_glb_url) {
+        // Centralized AR library model
         ar_model = {
           id: dish.ar_model_id,
-          glb_url: dish.library_glb_url || dish.glb_model_url,
-          usdz_url: dish.library_usdz_url || dish.usdz_model_url,
-          thumbnail_url: dish.library_thumbnail_url,
-          dish_name: dish.library_dish_name,
-          normalized_rotation_x: dish.normalized_rotation_x,
-          normalized_rotation_y: dish.normalized_rotation_y,
-          normalized_rotation_z: dish.normalized_rotation_z,
-          normalized_scale: dish.normalized_scale,
-          normalized_height_offset: dish.normalized_height_offset
+          glb_url: dish.library_glb_url,
+          usdz_url: dish.library_usdz_url || null,
+          thumbnail_url: dish.library_thumbnail_url || null,
+          dish_name: dish.library_dish_name || null,
+          normalized_rotation_x: dish.normalized_rotation_x || 0,
+          normalized_rotation_y: dish.normalized_rotation_y || 0,
+          normalized_rotation_z: dish.normalized_rotation_z || 0,
+          normalized_scale: dish.normalized_scale || 1.0,
+          normalized_height_offset: dish.normalized_height_offset || 0
         };
-      } else if (dish.glb_model_url) {
+      } else if (dish.ar_model_id && dish.glb_model_url) {
+        // ar_model_id set but library JOIN returned no glb_url — use dish's own glb_model_url
+        ar_model = {
+          id: dish.ar_model_id,
+          glb_url: dish.glb_model_url,
+          usdz_url: dish.usdz_model_url || null,
+          thumbnail_url: null,
+          dish_name: null,
+          normalized_rotation_x: 0,
+          normalized_rotation_y: 0,
+          normalized_rotation_z: 0,
+          normalized_scale: 1.0,
+          normalized_height_offset: 0
+        };
+      } else if (!dish.ar_model_id && dish.glb_model_url) {
+        // Legacy: no library model, just a directly-uploaded GLB
         ar_model = {
           glb_url: dish.glb_model_url,
-          usdz_url: dish.usdz_model_url
+          usdz_url: dish.usdz_model_url || null
         };
       }
 
-      // Remove flat fields from response to keep it clean
-      delete dish.library_glb_url;
-      delete dish.library_usdz_url;
-      delete dish.library_thumbnail_url;
-      delete dish.library_dish_name;
-      delete dish.normalized_rotation_x;
-      delete dish.normalized_rotation_y;
-      delete dish.normalized_rotation_z;
-      delete dish.normalized_scale;
-      delete dish.normalized_height_offset;
+      // Remove flat JOIN fields from response to keep it clean
+      const {
+        library_glb_url, library_usdz_url, library_thumbnail_url, library_dish_name,
+        normalized_rotation_x, normalized_rotation_y, normalized_rotation_z,
+        normalized_scale, normalized_height_offset,
+        ...cleanDish
+      } = dish;
+
+      // Force enable_3d_ar true whenever an ar_model is available
+      if (ar_model && ar_model.glb_url) {
+        cleanDish.enable_3d_ar = true;
+      }
 
       return {
-        ...dish,
+        ...cleanDish,
         ar_model
       };
     });
 
     res.json(formattedDishes);
   } catch (error) {
-    console.error(error);
+    console.error('getDishesByRestaurant error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 // @desc    Get single dish
 // @route   GET /api/dishes/:id
@@ -122,8 +175,8 @@ const addDish = async (req, res) => {
     const ar_enabled = req.body.ar_enabled === 'true' || req.body.ar_enabled === true;
     let ar_image_url = null;
     
-    const enable_3d_ar = req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true;
     const ar_model_id = Array.isArray(req.body.ar_model_id) ? req.body.ar_model_id[0] : (req.body.ar_model_id || null);
+    const enable_3d_ar = ar_model_id ? true : (req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true);
 
     let imageUrl = null;
     let thumbnailUrl = null;
@@ -214,8 +267,8 @@ const updateDish = async (req, res) => {
     const ar_enabled = req.body.ar_enabled === 'true' || req.body.ar_enabled === true;
     let ar_image_url = existing[0].ar_image_url;
 
-    const enable_3d_ar = req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true;
     const ar_model_id = Array.isArray(req.body.ar_model_id) ? req.body.ar_model_id[0] : (req.body.ar_model_id || null);
+    const enable_3d_ar = ar_model_id ? true : (req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true);
 
     let imageUrl = existing[0].image_url;
     let thumbnailUrl = existing[0].thumbnail_url;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import {
   Star, Clock, Flame, Info, Search, Sparkles, Camera, ShoppingBag, Plus, Minus, X,
   UtensilsCrossed, MapPin, Phone, ScanLine, Layers, Menu, Home, User, Image as ImageIcon
@@ -26,6 +26,8 @@ const useDebounce = (value, delay) => {
 
 const PublicMenu = () => {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const isDebugMode = searchParams.get('debug') === '1';
   const [restaurant, setRestaurant] = useState(null);
   const [dishes, setDishes] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -122,13 +124,36 @@ const PublicMenu = () => {
   useEffect(() => {
     const fetchMenu = async () => {
       try {
-        const restRes = await api.get(`/restaurants/slug/${slug}`);
+        const restRes = await api.get(`/restaurants/slug/${slug}?t=${Date.now()}`);
         setRestaurant(restRes.data);
         
-        const dishesRes = await api.get(`/dishes/restaurant/${restRes.data.id}`);
-        setDishes(dishesRes.data);
+        const dishesRes = await api.get(`/dishes/restaurant/${restRes.data.id}?t=${Date.now()}`);
         
-        const uniqueCategories = ['All', ...new Set(dishesRes.data.map(d => d.ai_category || d.category))];
+        // Failsafe: Ensure ar_model exists even if backend is running old code or query failed
+        const safeDishes = dishesRes.data.map(dish => {
+          // Case 1: ar_model already set correctly by backend
+          if (dish.ar_model && dish.ar_model.glb_url) {
+            dish.enable_3d_ar = true;
+          }
+          // Case 2 (legacy): no ar_model but has glb_model_url directly on dish
+          else if (!dish.ar_model && dish.glb_model_url) {
+            dish.ar_model = { glb_url: dish.glb_model_url, usdz_url: dish.usdz_model_url };
+            dish.enable_3d_ar = true;
+          }
+          // Case 3: nothing — no AR available
+          else {
+            dish.ar_model = null;
+            if (!dish.ar_model_id) dish.enable_3d_ar = false;
+          }
+          // Always log AR state for debugging
+          console.log(`[AR Debug] dish="${dish.name}" id=${dish.id} ar_model_id=${dish.ar_model_id ?? 'null'} enable_3d_ar=${dish.enable_3d_ar} glb_url=${dish.ar_model?.glb_url || 'NULL'}`);
+          return dish;
+        });
+
+
+        setDishes(safeDishes);
+        
+        const uniqueCategories = ['All', ...new Set(safeDishes.map(d => d.ai_category || d.category))];
         setCategories(uniqueCategories);
 
         analyticsService.trackSession(restRes.data.id);
@@ -147,6 +172,7 @@ const PublicMenu = () => {
     };
     fetchMenu();
   }, [slug]);
+
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -425,8 +451,14 @@ const PublicMenu = () => {
 
   const handleQuickAR = (dish, e) => {
     e?.stopPropagation();
-    if (dish.ar_enabled && dish.ar_image_url) {
-      alert('Real 3D AR Viewer Coming Soon!');
+    if ((dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url) {
+      setSelectedDish(dish);
+      setIsARViewerOpen(true);
+      if (restaurant) {
+        analyticsService.trackEvent?.('ar_open', { dishId: dish.id, restaurantId: restaurant.id });
+      }
+    } else {
+      alert('No 3D Model Available for this dish.');
     }
   };
 
@@ -486,10 +518,25 @@ const PublicMenu = () => {
           {dish.ai_description || dish.short_description || dish.description || 'Delicious dish from our kitchen.'}
         </p>
         <div className="pm-m-dish-actions">
-          <button type="button" className="pm-m-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
-            <ScanLine size={16} />
-            3D Dish Experience
-          </button>
+          {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
+            <button type="button" className="pm-m-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
+              <ScanLine size={16} />
+              3D Dish Experience
+            </button>
+          )}
+          {isDebugMode && (
+            <div style={{
+              fontSize: '0.65rem', padding: '0.15rem 0.4rem', borderRadius: '0.25rem',
+              backgroundColor: dish.ar_model?.glb_url ? '#dcfce7' : '#fee2e2',
+              color: dish.ar_model?.glb_url ? '#166534' : '#991b1b',
+              fontWeight: 700, fontFamily: 'monospace'
+            }}
+              onClick={() => { console.log('[AR Debug Full]', dish); alert(JSON.stringify({id: dish.id, name: dish.name, ar_model_id: dish.ar_model_id, enable_3d_ar: dish.enable_3d_ar, ar_model_glb: dish.ar_model?.glb_url || null}, null, 2)); }}
+            >
+              {dish.ar_model?.glb_url ? `✅ AR id=${dish.ar_model_id}` : `❌ NO AR (id=${dish.ar_model_id || 'null'})`}
+            </div>
+          )}
+
           {dish.is_available ? (
             <button
               type="button"
@@ -567,10 +614,12 @@ const PublicMenu = () => {
         </p>
         <div className="pm-d-dish-meta">
           <span className="pm-d-dish-price">₹{getDisplayPrice(dish)}</span>
-          <button type="button" className="pm-d-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
-            <ScanLine size={14} />
-            3D Dish Experience
-          </button>
+          {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
+            <button type="button" className="pm-d-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
+              <ScanLine size={14} />
+              3D Dish Experience
+            </button>
+          )}
         </div>
         <div className="pm-d-dish-actions">
           <button type="button" className="pm-d-stack-btn" onClick={() => setSelectedDish(dish)} aria-label="Details">
@@ -594,8 +643,22 @@ const PublicMenu = () => {
 
   return (
     <div className="public-menu-container">
+      {/* ========== DEBUG PANEL (only when ?debug=1) ========== */}
+      {isDebugMode && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99999, backgroundColor: '#0f172a', color: '#fff', padding: '0.75rem 1rem', fontSize: '0.75rem', fontFamily: 'monospace', maxHeight: '40vh', overflowY: 'auto' }}>
+          <div style={{ fontWeight: 'bold', marginBottom: '0.5rem', color: '#fbbf24' }}>
+            🔍 AR DEBUG MODE | Restaurant: {restaurant?.id} | Dishes: {dishes.length} | With AR: {dishes.filter(d => d.ar_model?.glb_url).length}
+          </div>
+          {dishes.map(d => (
+            <div key={d.id} style={{ marginBottom: '0.25rem', color: d.ar_model?.glb_url ? '#4ade80' : '#f87171' }}>
+              {d.ar_model?.glb_url ? '✅' : '❌'} [{d.id}] "{d.name}" | ar_model_id={d.ar_model_id ?? 'null'} | enable_3d_ar={String(d.enable_3d_ar)} | glb_url={d.ar_model?.glb_url ? d.ar_model.glb_url.slice(0,50)+'...' : 'NULL'}
+            </div>
+          ))}
+        </div>
+      )}
       {/* ========== MOBILE — premium reference layout ========== */}
       <div className="pm-view-mobile">
+
         <header className="pm-m-header" id="pm-m-header">
           <button
             type="button"
@@ -906,7 +969,10 @@ const PublicMenu = () => {
 
       {/* Dish Details Modal */}
       <Modal isOpen={!!selectedDish} onClose={() => setSelectedDish(null)} title={selectedDish?.name}>
-        {selectedDish && (
+        {selectedDish && (() => {
+          console.log("PUBLIC MENU DISH", selectedDish);
+          console.log("AR MODEL", selectedDish.ar_model);
+          return (
           <div className="dish-modal-content fade-in">
             {getBestImage(selectedDish) && (
               <div className="dish-modal-img">
@@ -1014,8 +1080,8 @@ const PublicMenu = () => {
                  )}
                </div>
             </div>
-
-            {selectedDish.enable_3d_ar && selectedDish.ar_model?.glb_url ? (
+            
+            {(selectedDish.enable_3d_ar || selectedDish.ar_model_id) && selectedDish.ar_model?.glb_url ? (
               <Button 
                 onClick={() => {
                   setIsARViewerOpen(true);
@@ -1036,7 +1102,7 @@ const PublicMenu = () => {
             )}
 
             {/* Model Preloading */}
-            {selectedDish.enable_3d_ar && selectedDish.ar_model?.glb_url && (
+            {(selectedDish.enable_3d_ar || selectedDish.ar_model_id) && selectedDish.ar_model?.glb_url && (
               <link rel="preload" href={selectedDish.ar_model.glb_url} as="fetch" crossOrigin="anonymous" />
             )}
 
@@ -1132,7 +1198,8 @@ const PublicMenu = () => {
               </Button>
             </div>
           </div>
-        )}
+          );
+        })()}
       </Modal>
 
       {/* 3D AR Viewer Modal */}
