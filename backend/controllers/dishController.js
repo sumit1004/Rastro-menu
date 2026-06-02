@@ -400,25 +400,6 @@ const bulkAddDishes = async (req, res) => {
   }
 };
 
-// @desc    Search AR models in central library
-// @route   GET /api/dishes/ar-models/search
-// @access  Private
-const searchArModels = async (req, res) => {
-  try {
-    const { query } = req.query;
-    if (!query) return res.json([]);
-    const searchTerm = `%${query}%`;
-    const [models] = await pool.query(
-      'SELECT id, dish_name, category, thumbnail_url, preview_image, glb_url FROM ar_model_library WHERE dish_name LIKE ? OR category LIKE ? OR tags LIKE ? LIMIT 10',
-      [searchTerm, searchTerm, searchTerm]
-    );
-    res.json(models);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
 module.exports = {
   getDishesByRestaurant,
   getDishById,

@@ -3,7 +3,7 @@ const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const { getSaaSMetrics, getAllRestaurants, updateRestaurantPlan } = require('../controllers/adminController');
 const { uploadArModel, getArModels, deleteArModel } = require('../controllers/adminArController');
-const { uploadCloudinary } = require('../middleware/uploadMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 
 // Middleware to check for admin role
 const requireAdmin = (req, res, next) => {
@@ -19,7 +19,7 @@ router.get('/restaurants', protect, requireAdmin, getAllRestaurants);
 router.put('/restaurants/:id/plan', protect, requireAdmin, updateRestaurantPlan);
 
 // AR Model Library Routes
-router.post('/ar-models', protect, requireAdmin, uploadCloudinary.fields([
+router.post('/ar-models', protect, requireAdmin, upload.fields([
   { name: 'glb_model', maxCount: 1 },
   { name: 'usdz_model', maxCount: 1 }
 ]), uploadArModel);
