@@ -16,8 +16,8 @@ const optimizeGlb = (inputPath) => {
     const outputPath = path.join(parsedPath.dir, `optimized_${parsedPath.name}${parsedPath.ext}`);
 
     // Command uses npx to run gltf-transform.
-    // It compresses using draco and resizes textures to 2048x2048.
-    const command = `npx @gltf-transform/cli optimize "${inputPath}" "${outputPath}" --texture-size 2048 --compress draco`;
+    // It compresses using draco, resizes textures to 1024x1024, and converts textures to webp.
+    const command = `npx @gltf-transform/cli optimize "${inputPath}" "${outputPath}" --texture-compress webp --texture-size 1024 --compress draco`;
 
     exec(command, (error, stdout, stderr) => {
       if (error) {

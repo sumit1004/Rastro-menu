@@ -112,22 +112,70 @@ class AnalyticsAggregator {
   async getTrendingDishes(restaurantId) {
     try {
       // Rule based: Most views in the last 7 days + high rating
+      // Also JOIN ar_model_library so trending dishes include full AR data
       const [dishes] = await db.execute(`
-        SELECT d.*, COUNT(dv.id) as recent_views
+        SELECT d.*, COUNT(dv.id) as recent_views,
+               a.glb_url        AS library_glb_url,
+               a.usdz_url       AS library_usdz_url,
+               a.thumbnail_url  AS library_thumbnail_url,
+               a.dish_name      AS library_dish_name,
+               IFNULL(a.normalized_rotation_x, 0)    AS normalized_rotation_x,
+               IFNULL(a.normalized_rotation_y, 0)    AS normalized_rotation_y,
+               IFNULL(a.normalized_rotation_z, 0)    AS normalized_rotation_z,
+               IFNULL(a.normalized_scale, 1.0)       AS normalized_scale,
+               IFNULL(a.normalized_height_offset, 0) AS normalized_height_offset
         FROM dishes d
         LEFT JOIN dish_views dv ON d.id = dv.dish_id AND dv.created_at >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        LEFT JOIN ar_model_library a ON d.ar_model_id = a.id
         WHERE d.restaurant_id = ? AND d.is_available = TRUE
         GROUP BY d.id
         ORDER BY recent_views DESC, d.average_rating DESC
         LIMIT 6
       `, [restaurantId]);
-      
-      return dishes;
+
+      // Build the ar_model object exactly like getDishesByRestaurant does
+      return dishes.map(dish => {
+        let ar_model = null;
+
+        if (dish.ar_model_id && dish.library_glb_url) {
+          ar_model = {
+            id: dish.ar_model_id,
+            glb_url: dish.library_glb_url,
+            usdz_url: dish.library_usdz_url || null,
+            thumbnail_url: dish.library_thumbnail_url || null,
+            dish_name: dish.library_dish_name || null,
+            normalized_rotation_x: dish.normalized_rotation_x || 0,
+            normalized_rotation_y: dish.normalized_rotation_y || 0,
+            normalized_rotation_z: dish.normalized_rotation_z || 0,
+            normalized_scale: dish.normalized_scale || 1.0,
+            normalized_height_offset: dish.normalized_height_offset || 0
+          };
+        } else if (!dish.ar_model_id && dish.glb_model_url) {
+          ar_model = {
+            glb_url: dish.glb_model_url,
+            usdz_url: dish.usdz_model_url || null
+          };
+        }
+
+        const {
+          library_glb_url, library_usdz_url, library_thumbnail_url, library_dish_name,
+          normalized_rotation_x, normalized_rotation_y, normalized_rotation_z,
+          normalized_scale, normalized_height_offset,
+          ...cleanDish
+        } = dish;
+
+        if (ar_model && ar_model.glb_url) {
+          cleanDish.enable_3d_ar = true;
+        }
+
+        return { ...cleanDish, ar_model };
+      });
     } catch (error) {
        console.error('Error getting trending dishes:', error);
        throw error;
     }
   }
+
 }
 
 module.exports = new AnalyticsAggregator();

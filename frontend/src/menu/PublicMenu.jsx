@@ -49,6 +49,9 @@ const PublicMenu = () => {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isDropReviewOpen, setIsDropReviewOpen] = useState(false);
   const [isARViewerOpen, setIsARViewerOpen] = useState(false);
+  const [arProgress, setArProgress] = useState(0);
+  const [arLoading, setArLoading] = useState(false);
+  const [arError, setArError] = useState(false);
   const isLowEndDevice = navigator.deviceMemory <= 4;
   const [hoveredStar, setHoveredStar] = useState(0);
 
@@ -78,6 +81,18 @@ const PublicMenu = () => {
   const [mobileNav, setMobileNav] = useState('home');
   const searchSectionRef = useRef(null);
   const heroRef = useRef(null);
+
+  // AR Timeout Logic
+  useEffect(() => {
+    let timeoutId;
+    if (isARViewerOpen && arLoading) {
+      timeoutId = setTimeout(() => {
+        setArError(true);
+        setArLoading(false);
+      }, 15000);
+    }
+    return () => clearTimeout(timeoutId);
+  }, [isARViewerOpen, arLoading]);
 
   // Reset ordering options when modal opens
   useEffect(() => {
@@ -159,11 +174,31 @@ const PublicMenu = () => {
         analyticsService.trackSession(restRes.data.id);
         
         try {
-          const trending = await analyticsService.getTrendingDishes(restRes.data.id);
-          setTrendingDishes(trending);
+          const trendingRaw = await analyticsService.getTrendingDishes(restRes.data.id);
+          
+          // Enrich trending dishes with full ar_model data from the already-loaded safeDishes
+          // (trending API may not include the ar_model JOIN — this is the client-side safety net)
+          const dishMap = new Map(safeDishes.map(d => [d.id, d]));
+          const enrichedTrending = trendingRaw.map(t => {
+            const full = dishMap.get(t.id);
+            if (full) {
+              // Use the fully-joined dish data (has ar_model, enable_3d_ar etc.)
+              return { ...full, recent_views: t.recent_views };
+            }
+            // If not found in map, apply same failsafe as safeDishes
+            if (t.ar_model && t.ar_model.glb_url) {
+              t.enable_3d_ar = true;
+            } else if (!t.ar_model && t.glb_model_url) {
+              t.ar_model = { glb_url: t.glb_model_url, usdz_url: t.usdz_model_url };
+              t.enable_3d_ar = true;
+            }
+            return t;
+          });
+          setTrendingDishes(enrichedTrending);
         } catch (e) {
           console.warn("Could not load trending dishes");
         }
+
       } catch (err) {
         setError('Restaurant not found or menu is unavailable.');
       } finally {
@@ -304,6 +339,17 @@ const PublicMenu = () => {
     if (trendingDishes.length > 0) return trendingDishes.slice(0, 8);
     return recommendedDishes.slice(0, 8);
   }, [trendingDishes, recommendedDishes, debouncedSearch]);
+
+  const preloadModels = useMemo(() => {
+    const urls = new Set();
+    trendingDishes.slice(0, 4).forEach(d => {
+      if ((d.enable_3d_ar || d.ar_model_id) && d.ar_model?.glb_url) urls.add(d.ar_model.glb_url);
+    });
+    dishes.slice(0, 6).forEach(d => {
+      if ((d.enable_3d_ar || d.ar_model_id) && d.ar_model?.glb_url) urls.add(d.ar_model.glb_url);
+    });
+    return Array.from(urls).slice(0, 5); // Max 5 models to avoid network congestion
+  }, [trendingDishes, dishes]);
 
   const scrollToMobileSearch = () => {
     setMobileNav('search');
@@ -453,6 +499,9 @@ const PublicMenu = () => {
     e?.stopPropagation();
     if ((dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url) {
       setSelectedDish(dish);
+      setArProgress(0);
+      setArError(false);
+      setArLoading(true);
       setIsARViewerOpen(true);
       if (restaurant) {
         analyticsService.trackEvent?.('ar_open', { dishId: dish.id, restaurantId: restaurant.id });
@@ -494,6 +543,14 @@ const PublicMenu = () => {
           <span className="pm-m-price">₹{getDisplayPrice(dish)}</span>
         </div>
         <p>{dish.ai_description || dish.short_description || dish.description || ''}</p>
+        <div className="pm-m-dish-actions" style={{ marginTop: '0.5rem' }}>
+          {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
+            <button type="button" className="pm-m-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
+              <ScanLine size={16} />
+              3D Dish Experience
+            </button>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -592,6 +649,14 @@ const PublicMenu = () => {
         <p className="pm-d-trend-desc">
           {dish.ai_description || dish.short_description || dish.description || ''}
         </p>
+        <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
+          {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
+            <button type="button" className="pm-d-ar-btn" onClick={(e) => handleQuickAR(dish, e)} style={{ padding: '0.4rem 0.5rem', width: '100%', fontSize: '0.75rem', justifyContent: 'center' }}>
+              <ScanLine size={14} />
+              3D Dish Experience
+            </button>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -643,6 +708,10 @@ const PublicMenu = () => {
 
   return (
     <div className="public-menu-container">
+      {/* Background Preload for AR Models */}
+      {preloadModels.map(url => (
+        <link key={`preload-${url}`} rel="preload" href={url} as="fetch" crossOrigin="anonymous" />
+      ))}
       {/* ========== DEBUG PANEL (only when ?debug=1) ========== */}
       {isDebugMode && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99999, backgroundColor: '#0f172a', color: '#fff', padding: '0.75rem 1rem', fontSize: '0.75rem', fontFamily: 'monospace', maxHeight: '40vh', overflowY: 'auto' }}>
@@ -1204,7 +1273,7 @@ const PublicMenu = () => {
 
       {/* 3D AR Viewer Modal */}
       {isARViewerOpen && selectedDish && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'black', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
+        <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'black', zIndex: 9999, display: 'flex', flexDirection: 'column', overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' }}>
           <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10, background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}>
             <h3 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>{selectedDish.name} - 3D AR</h3>
             <button onClick={() => setIsARViewerOpen(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -1212,59 +1281,88 @@ const PublicMenu = () => {
             </button>
           </div>
           
-          <div style={{ flex: 1, position: 'relative' }}>
-            <model-viewer
-              src={selectedDish.ar_model?.glb_url || undefined}
-              ios-src={selectedDish.ar_model?.usdz_url || undefined}
-              alt={`A 3D model of ${selectedDish.name}`}
-              ar
-              ar-modes="webxr scene-viewer quick-look"
-              environment-image="neutral"
-              shadow-intensity={isLowEndDevice ? "0.3" : "0.4"}
-              shadow-softness={isLowEndDevice ? "0.5" : "1"}
-              exposure="0.9"
-              loading="eager"
-              reveal="auto"
-              camera-controls
-              auto-rotate="false"
-              orientation={
-                selectedDish.ar_model_id && selectedDish.ar_model 
-                  ? `${selectedDish.ar_model.normalized_rotation_x || 0}rad ${selectedDish.ar_model.normalized_rotation_y || 0}rad ${selectedDish.ar_model.normalized_rotation_z || 0}rad`
-                  : "0 180deg 0"
-              }
-              style={{ width: '100%', height: '100%', backgroundColor: '#f0f0f0' }}
-              onLoad={(e) => {
-                const viewer = e.target;
-                
-                if (selectedDish.ar_model_id && selectedDish.ar_model) {
-                  // Apply persistent library transforms
-                  const scaleVal = selectedDish.ar_model.normalized_scale || 1.0;
-                  viewer.scale = `${scaleVal} ${scaleVal} ${scaleVal}`;
-                  viewer.modelPosition = `0 ${selectedDish.ar_model.normalized_height_offset || 0} 0`;
-                } else {
-                  // Automatic Size Normalization
-                  const size = viewer.getDimensions();
-                  const maxDimension = Math.max(size.x, size.y, size.z);
-                  const targetSize = 0.25; // 25cm plate
-                  const scale = maxDimension > 0 ? targetSize / maxDimension : 1;
-                  viewer.scale = `${scale} ${scale} ${scale}`;
-
-                  // Automatic Grounding Correction
-                  const center = viewer.getBoundingBoxCenter();
-                  const bottomY = center.y - (size.y / 2);
-                  viewer.modelPosition = `0 ${-bottomY} 0`;
-                }
-              }}
-              data-device-memory={navigator.deviceMemory}
-            >
-              <div slot="progress-bar" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#16a34a' }}>
-                <Loader />
-                <p style={{ marginTop: '1rem', fontWeight: 'bold' }}>Preparing 3D Dish Experience...</p>
+          <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%' }}>
+            {arError ? (
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#f87171' }}>
+                <p style={{ marginBottom: '1rem', fontWeight: 'bold' }}>Failed to load 3D model.<br/>Please try again.</p>
+                <Button onClick={() => { setArError(false); setArLoading(true); }}>Retry</Button>
               </div>
-              <button slot="ar-button" style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#0f172a', color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '2rem', fontSize: '1.125rem', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', cursor: 'pointer', display: 'flex', gap: '0.5rem', alignItems: 'center', zIndex: 10 }}>
-                <Sparkles size={20} /> Launch Real AR
-              </button>
-            </model-viewer>
+            ) : (
+              <model-viewer
+                src={selectedDish.ar_model?.glb_url || undefined}
+                ios-src={selectedDish.ar_model?.usdz_url || undefined}
+                alt={`A 3D model of ${selectedDish.name}`}
+                ar
+                ar-modes="webxr scene-viewer quick-look"
+                environment-image="neutral"
+                shadow-intensity={isLowEndDevice ? "0.2" : "0.4"}
+                shadow-softness={isLowEndDevice ? "0.3" : "1"}
+                exposure="0.9"
+                loading="eager"
+                reveal="auto"
+                camera-controls
+                auto-rotate="false"
+                min-camera-orbit="auto 0deg auto"
+                max-camera-orbit="auto 90deg auto"
+                interpolation-decay="200"
+                orientation={
+                  selectedDish.ar_model_id && selectedDish.ar_model 
+                    ? `${selectedDish.ar_model.normalized_rotation_x || 0}rad ${selectedDish.ar_model.normalized_rotation_y || 0}rad ${selectedDish.ar_model.normalized_rotation_z || 0}rad`
+                    : "0 180deg 0"
+                }
+                style={{ width: '100%', height: '100%', display: 'block', backgroundColor: '#f0f0f0' }}
+                onProgress={(e) => {
+                  if (e.detail && typeof e.detail.totalProgress === 'number') {
+                    setArProgress(Math.round(e.detail.totalProgress * 100));
+                  }
+                }}
+                onError={(e) => {
+                  console.error("Model viewer error:", e);
+                  setArError(true);
+                  setArLoading(false);
+                }}
+                onLoad={(e) => {
+                  setArLoading(false);
+                  const viewer = e.target;
+                  
+                  if (selectedDish.ar_model_id && selectedDish.ar_model) {
+                    // Apply persistent library transforms
+                    const scaleVal = selectedDish.ar_model.normalized_scale || 1.0;
+                    viewer.scale = `${scaleVal} ${scaleVal} ${scaleVal}`;
+                    viewer.modelPosition = `0 ${selectedDish.ar_model.normalized_height_offset || 0} 0`;
+                  } else {
+                    // Automatic Size Normalization
+                    const size = viewer.getDimensions();
+                    const maxDimension = Math.max(size.x, size.y, size.z);
+                    
+                    let targetSize = 0.25; // default 25cm
+                    const cat = (selectedDish.category || '').toLowerCase();
+                    if (cat.includes('burger') || cat.includes('sandwich')) targetSize = 0.15;
+                    else if (cat.includes('pizza')) targetSize = 0.35;
+                    else if (cat.includes('drink') || cat.includes('beverage')) targetSize = 0.20; // Will scale max dim (usually height) to 20cm
+
+                    const scale = maxDimension > 0 ? targetSize / maxDimension : 1;
+                    viewer.scale = `${scale} ${scale} ${scale}`;
+
+                    // Automatic Grounding Correction
+                    const center = viewer.getBoundingBoxCenter();
+                    const bottomY = center.y - (size.y / 2);
+                    viewer.modelPosition = `0 ${-bottomY} 0`;
+                  }
+                }}
+                data-device-memory={navigator.deviceMemory}
+              >
+                {arLoading && (
+                  <div slot="progress-bar" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#16a34a' }}>
+                    <Loader />
+                    <p style={{ marginTop: '1rem', fontWeight: 'bold' }}>Loading 3D Model... {arProgress}%</p>
+                  </div>
+                )}
+                <button slot="ar-button" style={{ position: 'fixed', bottom: 'env(safe-area-inset-bottom, 20px)', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#0f172a', color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '2rem', fontSize: '1.125rem', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', cursor: 'pointer', display: 'flex', gap: '0.5rem', alignItems: 'center', zIndex: 10 }}>
+                  <Sparkles size={20} /> Launch Real AR
+                </button>
+              </model-viewer>
+            )}
           </div>
         </div>
       )}
