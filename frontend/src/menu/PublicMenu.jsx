@@ -1153,23 +1153,29 @@ const PublicMenu = () => {
               ar
               ar-modes="webxr scene-viewer quick-look"
               environment-image="neutral"
-              shadow-intensity={isLowEndDevice ? "0.5" : "1"}
+              shadow-intensity={isLowEndDevice ? "0.3" : "0.4"}
               shadow-softness={isLowEndDevice ? "0.5" : "1"}
-              exposure="1"
+              exposure="0.9"
               loading="eager"
               reveal="auto"
               camera-controls
               auto-rotate="false"
-              scale={selectedDish.model_scale || "1 1 1"}
+              orientation="0 180deg 0"
               style={{ width: '100%', height: '100%', backgroundColor: '#f0f0f0' }}
               onLoad={(e) => {
                 const viewer = e.target;
-                // Auto-grounding logic using bounding box center and extents
+                
+                // Automatic Size Normalization
                 const size = viewer.getDimensions();
+                const maxDimension = Math.max(size.x, size.y, size.z);
+                const targetSize = 0.25; // 25cm plate
+                const scale = maxDimension > 0 ? targetSize / maxDimension : 1;
+                viewer.scale = `${scale} ${scale} ${scale}`;
+
+                // Automatic Grounding Correction
                 const center = viewer.getBoundingBoxCenter();
                 const bottomY = center.y - (size.y / 2);
-                const offset = parseFloat(selectedDish.model_height_offset || 0);
-                viewer.modelPosition = `0 ${-bottomY + offset} 0`;
+                viewer.modelPosition = `0 ${-bottomY} 0`;
               }}
               data-device-memory={navigator.deviceMemory}
             >

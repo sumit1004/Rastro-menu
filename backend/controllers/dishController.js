@@ -2,6 +2,7 @@ const pool = require('../config/db');
 const { optimizeArImage } = require('../utils/arImageOptimizer');
 const { roundMoney } = require('../utils/money');
 const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
+const { optimizeGlb } = require('../utils/glbOptimizer');
 const fs = require('fs');
 
 // Helper to get restaurant_id from user_id
@@ -72,9 +73,6 @@ const addDish = async (req, res) => {
     let ar_image_url = null;
     
     const enable_3d_ar = req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true;
-    const model_scale = req.body.model_scale || null;
-    const model_rotation = req.body.model_rotation || null;
-    const model_height_offset = req.body.model_height_offset || null;
 
     let imageUrl = null;
     let thumbnailUrl = null;
@@ -94,8 +92,13 @@ const addDish = async (req, res) => {
     }
 
     if (req.files && req.files['glb_model']) {
-      glbModelUrl = await uploadToCloudinary(req.files['glb_model'][0].path, 'models/glb');
-      try { fs.unlinkSync(req.files['glb_model'][0].path); } catch (e) {}
+      const originalPath = req.files['glb_model'][0].path;
+      const optimizedPath = await optimizeGlb(originalPath);
+      glbModelUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
+      try { fs.unlinkSync(originalPath); } catch (e) {}
+      if (optimizedPath !== originalPath) {
+        try { fs.unlinkSync(optimizedPath); } catch (e) {}
+      }
     }
 
     if (req.files && req.files['usdz_model']) {
@@ -105,9 +108,9 @@ const addDish = async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO dishes 
-      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glb_model_url, usdz_model_url, enable_3d_ar, model_scale, model_rotation, model_height_offset) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glbModelUrl, usdzModelUrl, enable_3d_ar, model_scale, model_rotation, model_height_offset]
+      (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, image_url, thumbnail_url, is_available, is_featured, ai_description, taste_tags, ai_category, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glb_model_url, usdz_model_url, enable_3d_ar) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glbModelUrl, usdzModelUrl, enable_3d_ar]
     );
 
     res.status(201).json({ message: 'Dish added', id: result.insertId });
@@ -161,9 +164,6 @@ const updateDish = async (req, res) => {
     let ar_image_url = existing[0].ar_image_url;
 
     const enable_3d_ar = req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true;
-    const model_scale = req.body.model_scale || null;
-    const model_rotation = req.body.model_rotation || null;
-    const model_height_offset = req.body.model_height_offset || null;
 
     let imageUrl = existing[0].image_url;
     let thumbnailUrl = existing[0].thumbnail_url;
@@ -191,8 +191,13 @@ const updateDish = async (req, res) => {
       if (glbModelUrl) await deleteFromCloudinary(glbModelUrl);
       glbModelUrl = null;
     } else if (req.files && req.files['glb_model']) {
-      glbModelUrl = await uploadToCloudinary(req.files['glb_model'][0].path, 'models/glb');
-      try { fs.unlinkSync(req.files['glb_model'][0].path); } catch (e) {}
+      const originalPath = req.files['glb_model'][0].path;
+      const optimizedPath = await optimizeGlb(originalPath);
+      glbModelUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
+      try { fs.unlinkSync(originalPath); } catch (e) {}
+      if (optimizedPath !== originalPath) {
+        try { fs.unlinkSync(optimizedPath); } catch (e) {}
+      }
     }
 
     if (req.body.remove_usdz_model === 'true') {
@@ -205,15 +210,9 @@ const updateDish = async (req, res) => {
 
     await pool.query(
       `UPDATE dishes SET 
-      name = ?, short_description = ?, description = ?, ingredients = ?, category = ?, 
-      price = ?, spice_level = ?, calories = ?, preparation_time = ?, image_url = ?, thumbnail_url = ?, 
-      is_available = ?, is_featured = ?, ai_description = ?, taste_tags = ?, ai_category = ?, ai_enhanced_image = ?,
-      ar_enabled = ?, ar_image_url = ?,
-      has_full_plate = ?, has_half_plate = ?, full_plate_price = ?, half_plate_price = ?,
-      dish_role = ?, cuisine_type = ?, meal_type = ?,
-      glb_model_url = ?, usdz_model_url = ?, enable_3d_ar = ?, model_scale = ?, model_rotation = ?, model_height_offset = ?
-      WHERE id = ?`,
-      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glbModelUrl, usdzModelUrl, enable_3d_ar, model_scale, model_rotation, model_height_offset, dishId]
+      name=?, short_description=?, description=?, ingredients=?, category=?, price=?, spice_level=?, calories=?, preparation_time=?, image_url=?, thumbnail_url=?, is_available=?, is_featured=?, ai_description=?, taste_tags=?, ai_category=?, ai_enhanced_image=?, ar_enabled=?, ar_image_url=?, has_full_plate=?, has_half_plate=?, full_plate_price=?, half_plate_price=?, dish_role=?, cuisine_type=?, meal_type=?, glb_model_url=?, usdz_model_url=?, enable_3d_ar=?
+      WHERE id=? AND restaurant_id=?`,
+      [name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, aiEnhancedImage, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glbModelUrl, usdzModelUrl, enable_3d_ar, dishId, restaurantId]
     );
 
     res.json({ message: 'Dish updated' });

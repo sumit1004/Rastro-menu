@@ -28,9 +28,6 @@ const ManageDishes = () => {
     preparation_time: '', is_available: true, is_featured: false,
     ar_enabled: false,
     enable_3d_ar: false,
-    model_scale: '1 1 1',
-    model_rotation: '0 0 0',
-    model_height_offset: '0',
     taste_tags: [],
     has_full_plate: true,
     has_half_plate: false,
@@ -141,9 +138,6 @@ const ManageDishes = () => {
         is_available: dish.is_available, is_featured: dish.is_featured,
         ar_enabled: !!dish.ar_enabled,
         enable_3d_ar: !!dish.enable_3d_ar,
-        model_scale: dish.model_scale || '1 1 1',
-        model_rotation: dish.model_rotation || '0 0 0',
-        model_height_offset: dish.model_height_offset || '0',
         taste_tags: typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : (dish.taste_tags || []),
         has_full_plate: dish.has_full_plate !== undefined ? dish.has_full_plate : true,
         has_half_plate: !!dish.has_half_plate,
@@ -162,9 +156,6 @@ const ManageDishes = () => {
         preparation_time: '', is_available: true, is_featured: false,
         ar_enabled: false,
         enable_3d_ar: false,
-        model_scale: '1 1 1',
-        model_rotation: '0 0 0',
-        model_height_offset: '0',
         taste_tags: [],
         has_full_plate: true,
         has_half_plate: false,
@@ -554,13 +545,8 @@ const ManageDishes = () => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-                  <Input label="Scale (X Y Z)" id="model_scale" value={formData.model_scale} onChange={handleChange} placeholder="1 1 1" />
-                  <Input label="Rotation (X Y Z)" id="model_rotation" value={formData.model_rotation} onChange={handleChange} placeholder="0 0 0" />
-                  <Input label="Height Offset (Y)" id="model_height_offset" value={formData.model_height_offset} onChange={handleChange} placeholder="0" />
-                </div>
                 <div style={{ padding: '0.5rem', backgroundColor: '#eef2ff', color: '#4338ca', fontSize: '0.875rem', borderRadius: '0.25rem' }}>
-                  <strong>Auto-Grounding:</strong> Models will be automatically grounded based on their bounding box (THREE.Box3).
+                  <strong>Auto-Optimization:</strong> Models will be automatically scaled to real-world plate size (~25cm) and grounded properly. No manual adjustments needed.
                 </div>
               </div>
             )}
