@@ -15,19 +15,20 @@ const SpatialDishViewer = ({ dish, onClose }) => {
   const deviceMemory = navigator.deviceMemory || 4;
   const isLowEnd = deviceMemory <= 4;
 
-  const ANCHOR_POS = new THREE.Vector3(0, -1.5, -4);
+  const ANCHOR_POS = new THREE.Vector3(0, -0.4, -5);
   const isVideo = dish.ar_video_url ? true : false;
   
-  // Base scale from dish type
   const baseScale = useMemo(() => {
     const name = dish.name.toLowerCase();
     const cat = (dish.category || '').toLowerCase();
     const target = name + ' ' + cat;
-    if (target.includes('pizza')) return 1.5;
-    if (target.includes('burger') || target.includes('sandwich')) return 0.8;
-    if (target.includes('bowl') || target.includes('salad')) return 1.0;
-    if (target.includes('drink') || target.includes('coffee')) return 0.6;
-    return 1.0;
+    let scale = 1.0;
+    if (target.includes('pizza')) scale = 1.5;
+    else if (target.includes('burger') || target.includes('sandwich')) scale = 0.8;
+    else if (target.includes('bowl') || target.includes('salad')) scale = 1.0;
+    else if (target.includes('drink') || target.includes('coffee')) scale = 0.6;
+    
+    return scale * 0.75; // Reduce overall scale slightly as requested
   }, [dish.name, dish.category]);
 
   const stateRef = useRef({
@@ -303,14 +304,15 @@ const SpatialDishViewer = ({ dish, onClose }) => {
 
       // Advanced Gyro Stabilization (Screen-Space Stabilization)
       // Damping heavily so camera moves but object feels stable and anchored
-      virtualCamera.current.currentX += (virtualCamera.current.targetX - virtualCamera.current.currentX) * 0.02;
-      virtualCamera.current.currentY += (virtualCamera.current.targetY - virtualCamera.current.currentY) * 0.02;
+      virtualCamera.current.currentX += (virtualCamera.current.targetX - virtualCamera.current.currentX) * 0.03;
+      virtualCamera.current.currentY += (virtualCamera.current.targetY - virtualCamera.current.currentY) * 0.03;
 
       camera.position.x = virtualCamera.current.currentX;
       camera.position.y = virtualCamera.current.currentY;
       
-      // LookAt ensures the object stays anchored while camera orbits
-      camera.lookAt(camera.position.x * 0.1, camera.position.y * 0.1, -4);
+      // LookAt ensures the object stays anchored in 3D space while camera orbits
+      // We look at the worldGroup's position (the anchor point) instead of looking forward
+      camera.lookAt(worldGroup.position);
       
       renderer.render(scene, camera);
     };
@@ -319,8 +321,9 @@ const SpatialDishViewer = ({ dish, onClose }) => {
     const handleOrientation = (e) => {
       if (e.gamma === null || e.beta === null) return;
       
-      let moveX = e.gamma / 20; 
-      let moveY = (e.beta - 60) / 20; 
+      // Reduce gyro sensitivity significantly to remove exaggerated parallax
+      let moveX = e.gamma / 100; 
+      let moveY = (e.beta - 60) / 100; 
       
       // Deadzone filtering
       if (Math.abs(moveX) < 0.05) moveX = 0;
