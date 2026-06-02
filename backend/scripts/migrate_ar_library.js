@@ -27,6 +27,11 @@ async function migrate() {
         optimized BOOLEAN DEFAULT TRUE,
         polygon_count INT NULL,
         file_size_mb DECIMAL(10,2) NULL,
+        normalized_rotation_x DECIMAL(10,4) DEFAULT 0.0000,
+        normalized_rotation_y DECIMAL(10,4) DEFAULT 0.0000,
+        normalized_rotation_z DECIMAL(10,4) DEFAULT 0.0000,
+        normalized_scale DECIMAL(10,4) DEFAULT 1.0000,
+        normalized_height_offset DECIMAL(10,4) DEFAULT 0.0000,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
@@ -44,14 +49,14 @@ async function migrate() {
     try {
       await pool.query(`
         ALTER TABLE dishes
-        ADD CONSTRAINT fk_ar_model
+        ADD CONSTRAINT fk_dishes_ar_model_library
         FOREIGN KEY (ar_model_id)
         REFERENCES ar_model_library(id)
         ON DELETE SET NULL
       `);
       console.log('Foreign key constraint added successfully.');
     } catch (fkError) {
-      if (fkError.code === 'ER_DUP_KEYNAME') {
+      if (fkError.code === 'ER_DUP_KEYNAME' || fkError.errno === 1061 || fkError.errno === 1022) {
         console.log('Foreign key constraint already exists.');
       } else {
         throw fkError;

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 const { getSaaSMetrics, getAllRestaurants, updateRestaurantPlan } = require('../controllers/adminController');
-const { uploadArModel, getArModels, deleteArModel } = require('../controllers/adminArController');
+const { uploadArModel, getArModels, modifyArModel, deleteArModel, bulkUploadArModels } = require('../controllers/adminArController');
 const upload = require('../middleware/uploadMiddleware');
 
 // Middleware to check for admin role
@@ -19,11 +19,13 @@ router.get('/restaurants', protect, requireAdmin, getAllRestaurants);
 router.put('/restaurants/:id/plan', protect, requireAdmin, updateRestaurantPlan);
 
 // AR Model Library Routes
+router.post('/ar-models/bulk', protect, requireAdmin, upload.array('glb_model', 50), bulkUploadArModels);
 router.post('/ar-models', protect, requireAdmin, upload.fields([
   { name: 'glb_model', maxCount: 1 },
   { name: 'usdz_model', maxCount: 1 }
 ]), uploadArModel);
 router.get('/ar-models', protect, requireAdmin, getArModels);
+router.put('/ar-models/:id', protect, requireAdmin, modifyArModel);
 router.delete('/ar-models/:id', protect, requireAdmin, deleteArModel);
 
 module.exports = router;

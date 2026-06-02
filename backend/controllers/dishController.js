@@ -18,7 +18,9 @@ const getDishesByRestaurant = async (req, res) => {
   try {
     const { restaurantId } = req.params;
     const [dishes] = await pool.query(
-      `SELECT d.*, a.glb_url as library_glb_url, a.usdz_url as library_usdz_url 
+      `SELECT d.*, a.glb_url as library_glb_url, a.usdz_url as library_usdz_url,
+              a.normalized_rotation_x, a.normalized_rotation_y, a.normalized_rotation_z,
+              a.normalized_scale, a.normalized_height_offset
        FROM dishes d
        LEFT JOIN ar_model_library a ON d.ar_model_id = a.id
        WHERE d.restaurant_id = ? ORDER BY d.created_at DESC`, 
@@ -295,6 +297,146 @@ const searchArModels = async (req, res) => {
 // @desc    Bulk Add Dishes
 // @route   POST /api/dishes/bulk
 // @access  Private
+// Helper to normalize strings for slug creation
+const makeSlug = (str) => {
+  return str.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+};
+
+// @desc    Validate bulk dishes and perform AR model auto-matching
+// @route   POST /api/dishes/bulk-validate
+// @access  Private
+const bulkValidateDishes = async (req, res) => {
+  try {
+    const { dishes } = req.body;
+    if (!dishes || !Array.isArray(dishes)) {
+      return res.status(400).json({ message: 'No dishes provided' });
+    }
+
+    if (dishes.length > 200) {
+      return res.status(400).json({ message: 'Bulk validation limit exceeded. Maximum 200 dishes allowed per import.' });
+    }
+
+    const restaurantId = await getRestaurantId(req.user.id);
+    if (!restaurantId) return res.status(400).json({ message: 'Please create a restaurant profile first' });
+
+    // Fetch existing dishes to check duplicates
+    const [existingDishes] = await pool.query('SELECT name FROM dishes WHERE restaurant_id = ?', [restaurantId]);
+    const existingNames = new Set(existingDishes.map(d => d.name.toLowerCase()));
+
+    // Fetch all library models to perform efficient matching in memory
+    const [libraryModels] = await pool.query('SELECT * FROM ar_model_library');
+
+    const validatedDishes = [];
+    const importErrors = [];
+
+    dishes.forEach((dish, index) => {
+      const rowNum = index + 2; // Assuming 1-based index + header row
+      const name = dish.name ? String(dish.name).trim() : '';
+      const category = dish.category ? String(dish.category).trim() : '';
+
+      if (!name) {
+        importErrors.push({ row: rowNum, error: 'Dish name is required' });
+        return;
+      }
+      if (!category) {
+        importErrors.push({ row: rowNum, error: 'Category is required' });
+        return;
+      }
+
+      // Check duplicates
+      const isDuplicate = existingNames.has(name.toLowerCase());
+
+      // Auto-matching logic
+      const dishSlug = makeSlug(name);
+      const categorySlug = makeSlug(category);
+
+      let ar_status = 'none';
+      let match_confidence = 0;
+      let ar_model_id = null;
+      let matched_model = null;
+      let potential_matches = [];
+
+      // 1. Try Exact Slug Match
+      const exactMatch = libraryModels.find(m => m.dish_slug === dishSlug);
+      if (exactMatch) {
+        ar_status = 'linked';
+        match_confidence = 100;
+        ar_model_id = exactMatch.id;
+        matched_model = exactMatch;
+      } else {
+        // 2. Fuzzy Token & Category Matching
+        const dishTokens = dishSlug.split('-').filter(t => t.length >= 3 && !['with', 'and', 'the', 'for', 'hot', 'cold', 'spicy'].includes(t));
+        
+        libraryModels.forEach(model => {
+          let score = 0;
+          const modelSlug = model.dish_slug;
+          const modelNameTokens = modelSlug.split('-');
+          
+          if (dishTokens.length > 0) {
+            let matchedTokenCount = 0;
+            dishTokens.forEach(t => {
+              if (modelNameTokens.includes(t)) matchedTokenCount++;
+            });
+            const tokenMatchRatio = matchedTokenCount / dishTokens.length;
+            score += Math.round(tokenMatchRatio * 75); // up to 75 points for name token matching
+          }
+
+          if (model.category && makeSlug(model.category) === categorySlug) {
+            score += 25; // 25 points for category matching
+          }
+
+          if (score > 30) {
+            potential_matches.push({
+              id: model.id,
+              dish_name: model.dish_name,
+              category: model.category,
+              glb_url: model.glb_url,
+              thumbnail_url: model.thumbnail_url,
+              preview_image: model.preview_image,
+              confidence: score
+            });
+          }
+        });
+
+        // Sort potential matches by confidence descending
+        potential_matches.sort((a, b) => b.confidence - a.confidence);
+
+        // If we have a single very high confidence match (e.g. >= 80) or top match is significantly higher than second
+        if (potential_matches.length > 0) {
+          const topMatch = potential_matches[0];
+          if (topMatch.confidence >= 80 && (potential_matches.length === 1 || topMatch.confidence - potential_matches[1].confidence >= 20)) {
+            ar_status = 'linked';
+            match_confidence = topMatch.confidence;
+            ar_model_id = topMatch.id;
+            matched_model = libraryModels.find(m => m.id === topMatch.id);
+          } else {
+            ar_status = 'needs_selection';
+            match_confidence = topMatch.confidence;
+          }
+        }
+      }
+
+      validatedDishes.push({
+        ...dish,
+        is_duplicate: isDuplicate,
+        ar_status,
+        match_confidence,
+        ar_model_id,
+        matched_model,
+        potential_matches: potential_matches.slice(0, 5) // Return top 5 candidates
+      });
+    });
+
+    res.json({
+      dishes: validatedDishes,
+      errors: importErrors
+    });
+  } catch (error) {
+    console.error('Bulk validation error:', error);
+    res.status(500).json({ message: 'Server error during bulk validation' });
+  }
+};
+
 const bulkAddDishes = async (req, res) => {
   const connection = await pool.getConnection();
   try {
@@ -304,6 +446,10 @@ const bulkAddDishes = async (req, res) => {
     const { dishes } = req.body;
     if (!dishes || !Array.isArray(dishes) || dishes.length === 0) {
       return res.status(400).json({ message: 'No dishes provided for bulk import' });
+    }
+
+    if (dishes.length > 200) {
+      return res.status(400).json({ message: 'Bulk import limit exceeded. Maximum 200 dishes allowed per import.' });
     }
 
     await connection.beginTransaction();
@@ -361,7 +507,10 @@ const bulkAddDishes = async (req, res) => {
         let imageUrl = dish.image_url || null;
         let thumbnailUrl = dish.image_url || null;
         
-        const ar_enabled = dish.ar_enabled === 'true' || dish.ar_enabled === true || dish.ar_enabled === '1' || dish.ar_enabled === 1 || dish.ar_enabled === 'Yes';
+        const ar_model_id = dish.ar_model_id || null;
+        const enable_3d_ar = ar_model_id ? true : (dish.enable_3d_ar === 'true' || dish.enable_3d_ar === true || dish.enable_3d_ar === 'Yes' || dish.enable_3d_ar === 1);
+        
+        const ar_enabled = ar_model_id ? true : (dish.ar_enabled === 'true' || dish.ar_enabled === true || dish.ar_enabled === '1' || dish.ar_enabled === 1 || dish.ar_enabled === 'Yes');
         let ar_image_url = dish.ar_asset_url || null;
 
         const dish_role = dish.dish_role || null;
@@ -370,9 +519,9 @@ const bulkAddDishes = async (req, res) => {
 
         await connection.query(
           `INSERT INTO dishes 
-          (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, preparation_time, image_url, thumbnail_url, is_available, is_featured, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [restaurantId, name, short_description, description, ingredients, category, price, spice_level, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type]
+          (restaurant_id, name, short_description, description, ingredients, category, price, spice_level, preparation_time, image_url, thumbnail_url, is_available, is_featured, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, ar_model_id, enable_3d_ar) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [restaurantId, name, short_description, description, ingredients, category, price, spice_level, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, ar_model_id, enable_3d_ar]
         );
         importedCount++;
       } catch (err) {
@@ -405,6 +554,7 @@ module.exports = {
   getDishById,
   addDish,
   bulkAddDishes,
+  bulkValidateDishes,
   updateDish,
   deleteDish,
   updateDishAvailability,

@@ -1160,22 +1160,33 @@ const PublicMenu = () => {
               reveal="auto"
               camera-controls
               auto-rotate="false"
-              orientation="0 180deg 0"
+              orientation={
+                selectedDish.ar_model_id 
+                  ? `${selectedDish.normalized_rotation_x || 0}rad ${selectedDish.normalized_rotation_y || 0}rad ${selectedDish.normalized_rotation_z || 0}rad`
+                  : "0 180deg 0"
+              }
               style={{ width: '100%', height: '100%', backgroundColor: '#f0f0f0' }}
               onLoad={(e) => {
                 const viewer = e.target;
                 
-                // Automatic Size Normalization
-                const size = viewer.getDimensions();
-                const maxDimension = Math.max(size.x, size.y, size.z);
-                const targetSize = 0.25; // 25cm plate
-                const scale = maxDimension > 0 ? targetSize / maxDimension : 1;
-                viewer.scale = `${scale} ${scale} ${scale}`;
+                if (selectedDish.ar_model_id) {
+                  // Apply persistent library transforms
+                  const scaleVal = selectedDish.normalized_scale || 1.0;
+                  viewer.scale = `${scaleVal} ${scaleVal} ${scaleVal}`;
+                  viewer.modelPosition = `0 ${selectedDish.normalized_height_offset || 0} 0`;
+                } else {
+                  // Automatic Size Normalization
+                  const size = viewer.getDimensions();
+                  const maxDimension = Math.max(size.x, size.y, size.z);
+                  const targetSize = 0.25; // 25cm plate
+                  const scale = maxDimension > 0 ? targetSize / maxDimension : 1;
+                  viewer.scale = `${scale} ${scale} ${scale}`;
 
-                // Automatic Grounding Correction
-                const center = viewer.getBoundingBoxCenter();
-                const bottomY = center.y - (size.y / 2);
-                viewer.modelPosition = `0 ${-bottomY} 0`;
+                  // Automatic Grounding Correction
+                  const center = viewer.getBoundingBoxCenter();
+                  const bottomY = center.y - (size.y / 2);
+                  viewer.modelPosition = `0 ${-bottomY} 0`;
+                }
               }}
               data-device-memory={navigator.deviceMemory}
             >
