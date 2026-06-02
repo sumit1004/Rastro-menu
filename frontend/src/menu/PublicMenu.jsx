@@ -46,6 +46,8 @@ const PublicMenu = () => {
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isDropReviewOpen, setIsDropReviewOpen] = useState(false);
+  const [isARViewerOpen, setIsARViewerOpen] = useState(false);
+  const isLowEndDevice = navigator.deviceMemory <= 4;
   const [hoveredStar, setHoveredStar] = useState(0);
 
   
@@ -1013,7 +1015,7 @@ const PublicMenu = () => {
                </div>
             </div>
 
-            {selectedDish.ar_enabled && (selectedDish.ar_image_url || selectedDish.ar_video_url) ? (
+            {selectedDish.enable_3d_ar && (selectedDish.glb_model_url || selectedDish.usdz_model_url) ? (
               <Button 
                 onClick={() => {
                   setIsARViewerOpen(true);
@@ -1024,13 +1026,18 @@ const PublicMenu = () => {
                 style={{ width: '100%', marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', backgroundColor: '#0f172a' }}
               >
                 <Camera size={18} />
-                View in AR
+                View in 3D AR
               </Button>
             ) : (
               <div style={{ marginTop: '1.5rem', padding: '0.75rem', backgroundColor: '#f1f5f9', borderRadius: '0.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>
                 <Camera size={16} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: '0.5rem' }} />
-                AR Preview Coming Soon
+                No 3D Model Available
               </div>
+            )}
+
+            {/* Model Preloading */}
+            {selectedDish.enable_3d_ar && selectedDish.glb_model_url && (
+              <link rel="preload" href={selectedDish.glb_model_url} as="fetch" crossOrigin="anonymous" />
             )}
 
             {/* Complete Your Meal Section */}
@@ -1128,7 +1135,55 @@ const PublicMenu = () => {
         )}
       </Modal>
 
-
+      {/* 3D AR Viewer Modal */}
+      {isARViewerOpen && selectedDish && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'black', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10, background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}>
+            <h3 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>{selectedDish.name} - 3D AR</h3>
+            <button onClick={() => setIsARViewerOpen(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+              <X size={24} />
+            </button>
+          </div>
+          
+          <div style={{ flex: 1, position: 'relative' }}>
+            <model-viewer
+              src={selectedDish.glb_model_url || undefined}
+              ios-src={selectedDish.usdz_model_url || undefined}
+              alt={`A 3D model of ${selectedDish.name}`}
+              ar
+              ar-modes="webxr scene-viewer quick-look"
+              environment-image="neutral"
+              shadow-intensity={isLowEndDevice ? "0.5" : "1"}
+              shadow-softness={isLowEndDevice ? "0.5" : "1"}
+              exposure="1"
+              loading="eager"
+              reveal="auto"
+              camera-controls
+              auto-rotate="false"
+              scale={selectedDish.model_scale || "1 1 1"}
+              style={{ width: '100%', height: '100%', backgroundColor: '#f0f0f0' }}
+              onLoad={(e) => {
+                const viewer = e.target;
+                // Auto-grounding logic using bounding box center and extents
+                const size = viewer.getDimensions();
+                const center = viewer.getBoundingBoxCenter();
+                const bottomY = center.y - (size.y / 2);
+                const offset = parseFloat(selectedDish.model_height_offset || 0);
+                viewer.modelPosition = `0 ${-bottomY + offset} 0`;
+              }}
+              data-device-memory={navigator.deviceMemory}
+            >
+              <div slot="progress-bar" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#16a34a' }}>
+                <Loader />
+                <p style={{ marginTop: '1rem', fontWeight: 'bold' }}>Preparing 3D Dish Experience...</p>
+              </div>
+              <button slot="ar-button" style={{ position: 'absolute', bottom: '2rem', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#0f172a', color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '2rem', fontSize: '1.125rem', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', cursor: 'pointer', display: 'flex', gap: '0.5rem', alignItems: 'center', zIndex: 10 }}>
+                <Sparkles size={20} /> Launch Real AR
+              </button>
+            </model-viewer>
+          </div>
+        </div>
+      )}
 
       {/* Modern Review Experience Modal */}
       {isReviewModalOpen && selectedDish && (

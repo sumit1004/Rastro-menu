@@ -27,6 +27,10 @@ const ManageDishes = () => {
     category: '', price: '', spice_level: '0', calories: '', 
     preparation_time: '', is_available: true, is_featured: false,
     ar_enabled: false,
+    enable_3d_ar: false,
+    model_scale: '1 1 1',
+    model_rotation: '0 0 0',
+    model_height_offset: '0',
     taste_tags: [],
     has_full_plate: true,
     has_half_plate: false,
@@ -38,12 +42,14 @@ const ManageDishes = () => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [arImageFile, setArImageFile] = useState(null);
+  const [glbModelFile, setGlbModelFile] = useState(null);
+  const [usdzModelFile, setUsdzModelFile] = useState(null);
   const [cropImageSrc, setCropImageSrc] = useState(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [existingAssets, setExistingAssets] = useState({ image: null, arImage: null });
-  const [removeAssets, setRemoveAssets] = useState({ image: false, arImage: false });
+  const [existingAssets, setExistingAssets] = useState({ image: null, arImage: null, glbModel: null, usdzModel: null });
+  const [removeAssets, setRemoveAssets] = useState({ image: false, arImage: false, glbModel: false, usdzModel: false });
 
   const [suggestionsModalState, setSuggestionsModalState] = useState({
     isOpen: false,
@@ -134,6 +140,10 @@ const ManageDishes = () => {
         calories: dish.calories || '', preparation_time: dish.preparation_time || '', 
         is_available: dish.is_available, is_featured: dish.is_featured,
         ar_enabled: !!dish.ar_enabled,
+        enable_3d_ar: !!dish.enable_3d_ar,
+        model_scale: dish.model_scale || '1 1 1',
+        model_rotation: dish.model_rotation || '0 0 0',
+        model_height_offset: dish.model_height_offset || '0',
         taste_tags: typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : (dish.taste_tags || []),
         has_full_plate: dish.has_full_plate !== undefined ? dish.has_full_plate : true,
         has_half_plate: !!dish.has_half_plate,
@@ -143,7 +153,7 @@ const ManageDishes = () => {
         cuisine_type: dish.cuisine_type || '',
         meal_type: dish.meal_type || ''
       });
-      setExistingAssets({ image: dish.image_url, arImage: dish.ar_image_url });
+      setExistingAssets({ image: dish.image_url, arImage: dish.ar_image_url, glbModel: dish.glb_model_url, usdzModel: dish.usdz_model_url });
     } else {
       setEditingId(null);
       setFormData({
@@ -151,6 +161,10 @@ const ManageDishes = () => {
         category: '', price: '', spice_level: '0', calories: '', 
         preparation_time: '', is_available: true, is_featured: false,
         ar_enabled: false,
+        enable_3d_ar: false,
+        model_scale: '1 1 1',
+        model_rotation: '0 0 0',
+        model_height_offset: '0',
         taste_tags: [],
         has_full_plate: true,
         has_half_plate: false,
@@ -160,11 +174,13 @@ const ManageDishes = () => {
         cuisine_type: '',
         meal_type: ''
       });
-      setExistingAssets({ image: null, arImage: null });
+      setExistingAssets({ image: null, arImage: null, glbModel: null, usdzModel: null });
     }
-    setRemoveAssets({ image: false, arImage: false });
+    setRemoveAssets({ image: false, arImage: false, glbModel: false, usdzModel: false });
     setImageFile(null);
     setArImageFile(null);
+    setGlbModelFile(null);
+    setUsdzModelFile(null);
     setCropImageSrc(null);
     setIsModalOpen(true);
   };
@@ -183,8 +199,12 @@ const ManageDishes = () => {
     });
     if (imageFile) submitData.append('image', imageFile);
     if (arImageFile) submitData.append('ar_image', arImageFile);
+    if (glbModelFile) submitData.append('glb_model', glbModelFile);
+    if (usdzModelFile) submitData.append('usdz_model', usdzModelFile);
     if (removeAssets.image) submitData.append('remove_image', 'true');
     if (removeAssets.arImage) submitData.append('remove_ar_image', 'true');
+    if (removeAssets.glbModel) submitData.append('remove_glb_model', 'true');
+    if (removeAssets.usdzModel) submitData.append('remove_usdz_model', 'true');
 
     try {
       let dishId = editingId;
@@ -468,19 +488,20 @@ const ManageDishes = () => {
           </div>
 
           <div className="form-group" style={{ borderTop: '1px solid #e2e8f0', paddingTop: '1.5rem', marginTop: '0.5rem' }}>
+            <h4 style={{ marginBottom: '1rem', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Sparkles size={18} /> 3D AR Configuration (Real AR)</h4>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: subscription?.features?.arAccess ? 'pointer' : 'not-allowed', fontWeight: 'bold', opacity: subscription?.features?.arAccess ? 1 : 0.6 }}>
                 <input 
                   type="checkbox" 
-                  id="ar_enabled" 
-                  checked={formData.ar_enabled} 
+                  id="enable_3d_ar" 
+                  checked={formData.enable_3d_ar} 
                   onChange={(e) => {
                     if (!subscription?.features?.arAccess) {
                       e.preventDefault();
                       setUpgradeModal({
                         isOpen: true,
-                        featureName: 'AR Previews',
-                        message: 'AR Previews are only available on the Pro and Premium plans.',
+                        featureName: '3D AR Experience',
+                        message: 'REAL 3D AR Experience is only available on Pro and Premium plans.',
                         limitReached: false
                       });
                       return;
@@ -489,38 +510,57 @@ const ManageDishes = () => {
                   }} 
                   disabled={!subscription?.features?.arAccess}
                 />
-                Enable AR Preview
+                Enable REAL 3D AR Experience
                 {!subscription?.features?.arAccess && <Lock size={14} className="text-muted" />}
               </label>
             </div>
             
-            {formData.ar_enabled && (
+            {formData.enable_3d_ar && (
               <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div>
-                  <label className="form-label">Static AR Image File</label>
-                  {existingAssets.arImage && !removeAssets.arImage && !arImageFile && (
-                    <div style={{ marginBottom: '1rem', position: 'relative', width: 'fit-content' }}>
-                      <img src={getImageUrl(existingAssets.arImage)} alt="Current AR" style={{ width: '150px', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9' }} />
-                      <button type="button" onClick={() => window.confirm("Remove existing AR image?") && setRemoveAssets({...removeAssets, arImage: true})} style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '24px', height: '24px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', paddingBottom: '2px' }}>×</button>
-                    </div>
-                  )}
-                  <input 
-                    type="file" 
-                    accept="image/png,image/webp" 
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          setCropImageSrc(reader.result);
-                          setIsCropperOpen(true);
-                        };
-                        reader.readAsDataURL(file);
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <div>
+                    <label className="form-label">.GLB Model (Android/WebXR)</label>
+                    {existingAssets.glbModel && !removeAssets.glbModel && !glbModelFile && (
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#16a34a', fontSize: '0.875rem' }}>✓ Existing Model Uploaded</span>
+                        <button type="button" onClick={() => setRemoveAssets({...removeAssets, glbModel: true})} style={{ marginLeft: '1rem', color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>Remove</button>
+                      </div>
+                    )}
+                    <input type="file" accept=".glb,.gltf" onChange={(e) => {
+                      if (e.target.files[0] && e.target.files[0].size > 15 * 1024 * 1024) {
+                        alert("File exceeds 15MB limit!");
+                        e.target.value = null;
+                        return;
                       }
-                    }} 
-                    className="form-control" 
-                  />
-                  {arImageFile && <p style={{ fontSize: '0.875rem', color: '#16a34a', marginTop: '0.5rem' }}>✓ Image asset ready</p>}
+                      setGlbModelFile(e.target.files[0]);
+                    }} className="form-control" />
+                  </div>
+                  <div>
+                    <label className="form-label">.USDZ Model (iOS Quick Look)</label>
+                    {existingAssets.usdzModel && !removeAssets.usdzModel && !usdzModelFile && (
+                      <div style={{ marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#16a34a', fontSize: '0.875rem' }}>✓ Existing USDZ Uploaded</span>
+                        <button type="button" onClick={() => setRemoveAssets({...removeAssets, usdzModel: true})} style={{ marginLeft: '1rem', color: '#ef4444', border: 'none', background: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>Remove</button>
+                      </div>
+                    )}
+                    <input type="file" accept=".usdz" onChange={(e) => {
+                      if (e.target.files[0] && e.target.files[0].size > 15 * 1024 * 1024) {
+                        alert("File exceeds 15MB limit!");
+                        e.target.value = null;
+                        return;
+                      }
+                      setUsdzModelFile(e.target.files[0]);
+                    }} className="form-control" />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                  <Input label="Scale (X Y Z)" id="model_scale" value={formData.model_scale} onChange={handleChange} placeholder="1 1 1" />
+                  <Input label="Rotation (X Y Z)" id="model_rotation" value={formData.model_rotation} onChange={handleChange} placeholder="0 0 0" />
+                  <Input label="Height Offset (Y)" id="model_height_offset" value={formData.model_height_offset} onChange={handleChange} placeholder="0" />
+                </div>
+                <div style={{ padding: '0.5rem', backgroundColor: '#eef2ff', color: '#4338ca', fontSize: '0.875rem', borderRadius: '0.25rem' }}>
+                  <strong>Auto-Grounding:</strong> Models will be automatically grounded based on their bounding box (THREE.Box3).
                 </div>
               </div>
             )}

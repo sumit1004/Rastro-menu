@@ -55,6 +55,12 @@ CREATE TABLE IF NOT EXISTS dishes (
     has_half_plate BOOLEAN DEFAULT FALSE,
     full_plate_price DECIMAL(10, 2) DEFAULT 0,
     half_plate_price DECIMAL(10, 2) DEFAULT 0,
+    glb_model_url VARCHAR(255) NULL,
+    usdz_model_url VARCHAR(255) NULL,
+    enable_3d_ar BOOLEAN DEFAULT FALSE,
+    model_scale VARCHAR(50) NULL,
+    model_rotation VARCHAR(50) NULL,
+    model_height_offset VARCHAR(50) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE
 );
