@@ -17,7 +17,6 @@ const TEMPLATE_COLUMNS = [
   'Prep Time (mins)',
   'Dish Image URL',
   'AR Asset URL',
-  'AR Asset Type',
   'Available',
   'Featured',
   'Veg/Non-Veg',
@@ -41,8 +40,8 @@ const BulkImportModal = ({ isOpen, onClose, onImportSuccess }) => {
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       TEMPLATE_COLUMNS,
-      ['Classic Burger', 'Fast Food', '150', 'No', '', 'No', '', 'Delicious beef burger', 'Beef, Lettuce, Tomato', '15', 'https://example.com/burger.jpg', '', 'pseudo-3d', 'No', 'Yes', 'Yes', 'Non-Veg', '2', 'main', 'Fast Food', 'Lunch'],
-      ['Margherita Pizza', 'Italian', '350', 'Yes', '350', 'Yes', '200', 'Classic cheese pizza', 'Cheese, Tomato', '20', 'https://example.com/pizza.jpg', 'https://example.com/pizza.mp4', 'video', 'Yes', 'Yes', 'No', 'Veg', '1', 'main', 'Italian', 'Dinner']
+      ['Classic Burger', 'Fast Food', '150', 'No', '', 'No', '', 'Delicious beef burger', 'Beef, Lettuce, Tomato', '15', 'https://example.com/burger.jpg', '', 'No', 'Yes', 'Yes', 'Non-Veg', '2', 'main', 'Fast Food', 'Lunch'],
+      ['Margherita Pizza', 'Italian', '350', 'Yes', '350', 'Yes', '200', 'Classic cheese pizza', 'Cheese, Tomato', '20', 'https://example.com/pizza.jpg', '', 'Yes', 'Yes', 'No', 'Veg', '1', 'main', 'Italian', 'Dinner']
     ]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Menu Template');
@@ -144,7 +143,6 @@ const BulkImportModal = ({ isOpen, onClose, onImportSuccess }) => {
         preparation_time: parseInt(row[getColIndex('Prep Time')]) || 0,
         image_url: row[getColIndex('Dish Image URL')]?.toString().trim() || '',
         ar_asset_url: row[getColIndex('AR Asset URL')]?.toString().trim() || '',
-        ar_asset_type: row[getColIndex('AR Asset Type')]?.toString().trim() || 'pseudo-3d',
         ar_enabled: row[getColIndex('Enable AR Preview')]?.toString().trim() || 'No',
         is_available: is_available,
         is_featured: row[getColIndex('Featured')]?.toString().trim() || 'No',
@@ -161,15 +159,6 @@ const BulkImportModal = ({ isOpen, onClose, onImportSuccess }) => {
         return;
       }
 
-      const validArTypes = ['image', 'video', 'sprite-sheet', 'pseudo-3d', 'sprite'];
-      let checkType = dish.ar_asset_type.toLowerCase();
-      if (checkType === 'sprite') checkType = 'sprite-sheet';
-      
-      if (dish.ar_asset_url && !validArTypes.includes(checkType)) {
-        errors.push(`Row ${rowNum}: Invalid AR Asset Type '${dish.ar_asset_type}'. Supported: image, video, sprite.`);
-        invalidCount++;
-        return;
-      }
 
       mappedDishes.push(dish);
       validCount++;

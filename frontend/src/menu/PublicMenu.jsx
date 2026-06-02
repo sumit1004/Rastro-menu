@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import api, { getImageUrl } from '../services/api';
 import analyticsService from '../services/analyticsService';
-import ARViewer from '../ar/ARViewer';
+
 import Loader from '../components/Loader';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
@@ -48,7 +48,6 @@ const PublicMenu = () => {
   const [isDropReviewOpen, setIsDropReviewOpen] = useState(false);
   const [hoveredStar, setHoveredStar] = useState(0);
 
-  const [isARViewerOpen, setIsARViewerOpen] = useState(false);
   
   const [dishSuggestions, setDishSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
@@ -424,9 +423,8 @@ const PublicMenu = () => {
 
   const handleQuickAR = (dish, e) => {
     e?.stopPropagation();
-    setSelectedDish(dish);
-    if (dish.ar_enabled && (dish.ar_image_url || dish.ar_video_url)) {
-      setIsARViewerOpen(true);
+    if (dish.ar_enabled && dish.ar_image_url) {
+      alert('Real 3D AR Viewer Coming Soon!');
     }
   };
 
@@ -488,7 +486,7 @@ const PublicMenu = () => {
         <div className="pm-m-dish-actions">
           <button type="button" className="pm-m-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
             <ScanLine size={16} />
-            AR View
+            3D Dish Experience
           </button>
           {dish.is_available ? (
             <button
@@ -569,7 +567,7 @@ const PublicMenu = () => {
           <span className="pm-d-dish-price">₹{getDisplayPrice(dish)}</span>
           <button type="button" className="pm-d-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
             <ScanLine size={14} />
-            AR View
+            3D Dish Experience
           </button>
         </div>
         <div className="pm-d-dish-actions">
@@ -1130,13 +1128,7 @@ const PublicMenu = () => {
         )}
       </Modal>
 
-      {isARViewerOpen && selectedDish && (
-        <ARViewer 
-          dish={selectedDish} 
-          restaurantId={restaurant.id} 
-          onClose={() => setIsARViewerOpen(false)} 
-        />
-      )}
+
 
       {/* Modern Review Experience Modal */}
       {isReviewModalOpen && selectedDish && (

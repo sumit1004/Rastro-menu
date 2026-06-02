@@ -10,8 +10,8 @@ router.get('/restaurant/:restaurantId', getDishesByRestaurant);
 router.get('/:id', getDishById);
 
 router.post('/bulk', protect, bulkAddDishes);
-router.post('/', protect, checkLimit('maxDishes', getDishCount), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'ar_image', maxCount: 1 }, { name: 'ar_video', maxCount: 1 }]), addDish);
-router.put('/:id', protect, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'ar_image', maxCount: 1 }, { name: 'ar_video', maxCount: 1 }]), updateDish);
+router.post('/', protect, checkLimit('maxDishes', getDishCount), upload.fields([{ name: 'image', maxCount: 1 }, { name: 'ar_image', maxCount: 1 }]), addDish);
+router.put('/:id', protect, upload.fields([{ name: 'image', maxCount: 1 }, { name: 'ar_image', maxCount: 1 }]), updateDish);
 router.patch('/:id/availability', protect, updateDishAvailability);
 router.delete('/:id', protect, deleteDish);
 

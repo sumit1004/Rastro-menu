@@ -27,7 +27,6 @@ const ManageDishes = () => {
     category: '', price: '', spice_level: '0', calories: '', 
     preparation_time: '', is_available: true, is_featured: false,
     ar_enabled: false,
-    ar_asset_type: 'static',
     taste_tags: [],
     has_full_plate: true,
     has_half_plate: false,
@@ -39,14 +38,12 @@ const ManageDishes = () => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [arImageFile, setArImageFile] = useState(null);
-  const [arVideoFile, setArVideoFile] = useState(null);
   const [cropImageSrc, setCropImageSrc] = useState(null);
-  const [videoPreviewSrc, setVideoPreviewSrc] = useState(null);
   const [isCropperOpen, setIsCropperOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [existingAssets, setExistingAssets] = useState({ image: null, arImage: null, arVideo: null });
-  const [removeAssets, setRemoveAssets] = useState({ image: false, arImage: false, arVideo: false });
+  const [existingAssets, setExistingAssets] = useState({ image: null, arImage: null });
+  const [removeAssets, setRemoveAssets] = useState({ image: false, arImage: false });
 
   const [suggestionsModalState, setSuggestionsModalState] = useState({
     isOpen: false,
@@ -137,7 +134,6 @@ const ManageDishes = () => {
         calories: dish.calories || '', preparation_time: dish.preparation_time || '', 
         is_available: dish.is_available, is_featured: dish.is_featured,
         ar_enabled: !!dish.ar_enabled,
-        ar_asset_type: dish.ar_asset_type || 'static',
         taste_tags: typeof dish.taste_tags === 'string' ? JSON.parse(dish.taste_tags) : (dish.taste_tags || []),
         has_full_plate: dish.has_full_plate !== undefined ? dish.has_full_plate : true,
         has_half_plate: !!dish.has_half_plate,
@@ -147,7 +143,7 @@ const ManageDishes = () => {
         cuisine_type: dish.cuisine_type || '',
         meal_type: dish.meal_type || ''
       });
-      setExistingAssets({ image: dish.image_url, arImage: dish.ar_image_url, arVideo: dish.ar_video_url });
+      setExistingAssets({ image: dish.image_url, arImage: dish.ar_image_url });
     } else {
       setEditingId(null);
       setFormData({
@@ -155,7 +151,6 @@ const ManageDishes = () => {
         category: '', price: '', spice_level: '0', calories: '', 
         preparation_time: '', is_available: true, is_featured: false,
         ar_enabled: false,
-        ar_asset_type: 'static',
         taste_tags: [],
         has_full_plate: true,
         has_half_plate: false,
@@ -165,14 +160,12 @@ const ManageDishes = () => {
         cuisine_type: '',
         meal_type: ''
       });
-      setExistingAssets({ image: null, arImage: null, arVideo: null });
+      setExistingAssets({ image: null, arImage: null });
     }
-    setRemoveAssets({ image: false, arImage: false, arVideo: false });
+    setRemoveAssets({ image: false, arImage: false });
     setImageFile(null);
     setArImageFile(null);
-    setArVideoFile(null);
     setCropImageSrc(null);
-    setVideoPreviewSrc(null);
     setIsModalOpen(true);
   };
 
@@ -190,10 +183,8 @@ const ManageDishes = () => {
     });
     if (imageFile) submitData.append('image', imageFile);
     if (arImageFile) submitData.append('ar_image', arImageFile);
-    if (arVideoFile) submitData.append('ar_video', arVideoFile);
     if (removeAssets.image) submitData.append('remove_image', 'true');
     if (removeAssets.arImage) submitData.append('remove_ar_image', 'true');
-    if (removeAssets.arVideo) submitData.append('remove_ar_video', 'true');
 
     try {
       let dishId = editingId;
@@ -505,73 +496,31 @@ const ManageDishes = () => {
             
             {formData.ar_enabled && (
               <div style={{ padding: '1rem', backgroundColor: '#f8fafc', borderRadius: '0.5rem', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: '200px' }}>
-                    <label className="form-label">AR Asset Manager</label>
-                    <select id="ar_asset_type" value={formData.ar_asset_type} onChange={handleChange} className="form-control">
-                      <option value="static">Static AR Image (PNG/WEBP)</option>
-                      <option value="cinematic">Cinematic AR Video (MP4/WEBM)</option>
-                    </select>
-                  </div>
-                </div>
-
                 <div>
-                  {formData.ar_asset_type === 'static' ? (
-                    <>
-                      <label className="form-label">Static AR Image File</label>
-                      {existingAssets.arImage && !removeAssets.arImage && !arImageFile && (
-                        <div style={{ marginBottom: '1rem', position: 'relative', width: 'fit-content' }}>
-                          <img src={getImageUrl(existingAssets.arImage)} alt="Current AR" style={{ width: '150px', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9' }} />
-                          <button type="button" onClick={() => window.confirm("Remove existing AR image?") && setRemoveAssets({...removeAssets, arImage: true})} style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '24px', height: '24px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', paddingBottom: '2px' }}>×</button>
-                        </div>
-                      )}
-                      <input 
-                        type="file" 
-                        accept="image/png,image/webp" 
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = () => {
-                              setCropImageSrc(reader.result);
-                              setIsCropperOpen(true);
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }} 
-                        className="form-control" 
-                      />
-                      {arImageFile && <p style={{ fontSize: '0.875rem', color: '#16a34a', marginTop: '0.5rem' }}>✓ Image asset ready</p>}
-                    </>
-                  ) : (
-                    <>
-                      <label className="form-label">Cinematic AR Video File</label>
-                      {existingAssets.arVideo && !removeAssets.arVideo && !arVideoFile && (
-                        <div style={{ marginBottom: '1rem', position: 'relative', width: 'fit-content' }}>
-                          <video src={getImageUrl(existingAssets.arVideo)} style={{ width: '200px', height: '150px', objectFit: 'contain', borderRadius: '0.5rem', backgroundColor: '#000' }} controls />
-                          <button type="button" onClick={() => window.confirm("Remove existing AR video?") && setRemoveAssets({...removeAssets, arVideo: true})} style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '24px', height: '24px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', paddingBottom: '2px', zIndex: 10 }}>×</button>
-                        </div>
-                      )}
-                      <input 
-                        type="file" 
-                        accept="video/mp4,video/webm" 
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (file) {
-                            setArVideoFile(file);
-                            setVideoPreviewSrc(URL.createObjectURL(file));
-                          }
-                        }} 
-                        className="form-control" 
-                      />
-                      {arVideoFile && videoPreviewSrc && (
-                        <div style={{ marginTop: '1rem', borderRadius: '0.5rem', overflow: 'hidden', backgroundColor: '#000', width: '100%', height: '150px' }}>
-                           <video src={videoPreviewSrc} loop muted autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        </div>
-                      )}
-                      {arVideoFile && <p style={{ fontSize: '0.875rem', color: '#16a34a', marginTop: '0.5rem' }}>✓ Video asset ready</p>}
-                    </>
+                  <label className="form-label">Static AR Image File</label>
+                  {existingAssets.arImage && !removeAssets.arImage && !arImageFile && (
+                    <div style={{ marginBottom: '1rem', position: 'relative', width: 'fit-content' }}>
+                      <img src={getImageUrl(existingAssets.arImage)} alt="Current AR" style={{ width: '150px', height: '150px', objectFit: 'cover', borderRadius: '0.5rem', border: '1px solid #e2e8f0', backgroundColor: '#f1f5f9' }} />
+                      <button type="button" onClick={() => window.confirm("Remove existing AR image?") && setRemoveAssets({...removeAssets, arImage: true})} style={{ position: 'absolute', top: '-10px', right: '-10px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '24px', height: '24px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', paddingBottom: '2px' }}>×</button>
+                    </div>
                   )}
+                  <input 
+                    type="file" 
+                    accept="image/png,image/webp" 
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          setCropImageSrc(reader.result);
+                          setIsCropperOpen(true);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }} 
+                    className="form-control" 
+                  />
+                  {arImageFile && <p style={{ fontSize: '0.875rem', color: '#16a34a', marginTop: '0.5rem' }}>✓ Image asset ready</p>}
                 </div>
               </div>
             )}
