@@ -7,7 +7,7 @@ import './ARViewer.css';
 /**
  * ARViewer — Stable fullscreen 3D / AR viewer.
  *
- * This version rolls back unstable custom transforms and
+ * This version removes unstable custom transforms and
  * restores native model-viewer WebXR behavior while safely
  * applying initial scale and ground normalization.
  */
@@ -37,8 +37,6 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
     return () => viewer.removeEventListener('ar-status', onArStatus);
   }, [isOpen, dish]);
 
-
-
   // ── Reset state when dish changes ──────────────────────────
   useEffect(() => {
     if (isOpen && dish) {
@@ -63,12 +61,11 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
         const size = viewer.getDimensions();
         const maxDimension = Math.max(size.x, size.y, size.z);
 
-        // Safe target size for tabletop
-        let targetSize = 0.25;
+        // Safe target size for realistic tabletop scale
+        let targetSize = 0.14;
         const cat = (dish?.category || '').toLowerCase();
-        if (cat.includes('burger') || cat.includes('sandwich')) targetSize = 0.15;
-        else if (cat.includes('pizza')) targetSize = 0.35;
-        else if (cat.includes('drink') || cat.includes('beverage')) targetSize = 0.20;
+        if (cat.includes('pizza')) targetSize = 0.18;
+        if (cat.includes('drink') || cat.includes('beverage')) targetSize = 0.12;
 
         const scale = maxDimension > 0 ? targetSize / maxDimension : 1;
         viewer.scale = `${scale} ${scale} ${scale}`;
@@ -98,6 +95,42 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
     }
 
   }, [dish]);
+
+  // ── Stable Loading Lifecycle Events ────────────────────────
+  useEffect(() => {
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+
+    const handleLoad = (e) => {
+      handleModelLoad(e);
+    };
+
+    const handleError = () => {
+      if (!isArSessionActive) {
+        setArError(true);
+        setArLoading(false);
+      }
+    };
+
+    viewer.addEventListener('load', handleLoad);
+    viewer.addEventListener('error', handleError);
+
+    return () => {
+      viewer.removeEventListener('load', handleLoad);
+      viewer.removeEventListener('error', handleError);
+    };
+  }, [handleModelLoad, isArSessionActive]);
+
+  // ── Auto-hide Loading Safety Timeout ───────────────────────
+  useEffect(() => {
+    if (!arLoading) return;
+
+    const timeout = setTimeout(() => {
+      setArLoading(false);
+    }, 3000);
+
+    return () => clearTimeout(timeout);
+  }, [arLoading]);
 
   // ── Prevent body scroll when open ──────────────────────────
   useEffect(() => {
@@ -143,7 +176,6 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
           ar
           ar-modes="webxr scene-viewer quick-look"
           ar-scale="auto"
-          ar-placement="floor"
           environment-image="neutral"
           shadow-intensity={isLowEndDevice ? '0.3' : '0.6'}
           shadow-softness={isLowEndDevice ? '0.5' : '1'}
@@ -151,10 +183,6 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
           loading="eager"
           reveal="auto"
           camera-controls
-          touch-action="pan-y"
-          auto-rotate
-          auto-rotate-delay="1500"
-          rotation-per-second="24deg"
           interaction-prompt="auto"
           interpolation-decay="100"
           min-camera-orbit="auto 10deg auto"
@@ -165,14 +193,6 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
           camera-orbit="0deg 55deg auto"
           orientation={orientationAttr}
           className="arv-model-viewer"
-          onError={(e) => {
-            console.error('Model viewer error:', e);
-            if (!isArSessionActive) {
-              setArError(true);
-              setArLoading(false);
-            }
-          }}
-          onLoad={handleModelLoad}
           data-device-memory={navigator.deviceMemory}
         >
           {/* AR Button (inside model-viewer slot) */}
@@ -180,14 +200,21 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
             <Sparkles size={20} />
             Launch Real AR
           </button>
-
         </model-viewer>
 
-
+        {/* Loading UI */}
+        {arLoading && !isArSessionActive && !arError && (
+          <div className="arv-loading">
+            <Loader />
+            <p className="arv-loading-text">
+              Preparing 3D Dish Experience...
+            </p>
+          </div>
+        )}
 
         {/* Error overlay - positioned over model-viewer, but doesn't unmount it */}
         {arError && !isArSessionActive && (
-          <div className="arv-error" style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '2rem', borderRadius: '1rem', border: '1px solid #334155' }}>
+          <div className="arv-error" style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '2rem', borderRadius: '1rem', border: '1px solid #334155', position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10 }}>
             <p style={{ color: '#f87171', marginBottom: '1.5rem', fontWeight: 'bold' }}>
               Failed to load 3D model.<br />Please check your network.
             </p>
