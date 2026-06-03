@@ -64,8 +64,8 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
         // Safe target size for realistic tabletop scale
         let targetSize = 0.14;
         const cat = (dish?.category || '').toLowerCase();
-        if (cat.includes('pizza')) targetSize = 0.18;
-        if (cat.includes('drink') || cat.includes('beverage')) targetSize = 0.12;
+        if (cat.includes('pizza')) targetSize = 0.15;
+        if (cat.includes('drink') || cat.includes('beverage')) targetSize = 0.9;
 
         const scale = maxDimension > 0 ? targetSize / maxDimension : 1;
         viewer.scale = `${scale} ${scale} ${scale}`;
