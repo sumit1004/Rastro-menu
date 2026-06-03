@@ -181,15 +181,6 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
             Launch Real AR
           </button>
 
-          {/* Recenter button during AR session */}
-          {isArSessionActive && (
-            <button
-              className="arv-recenter-btn"
-              onClick={() => viewerRef.current?.resetCamera()}
-            >
-              Recenter Dish
-            </button>
-          )}
         </model-viewer>
 
 
