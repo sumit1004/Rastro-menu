@@ -1314,26 +1314,33 @@ const PublicMenu = () => {
                 ar-modes="webxr scene-viewer quick-look"
                 ar-scale="fixed"
                 ar-placement="floor"
-                disable-pan
-                disable-zoom
                 bounds="tight"
                 environment-image="neutral"
-                shadow-intensity={isLowEndDevice ? "0.2" : "0.4"}
-                shadow-softness={isLowEndDevice ? "0.3" : "1"}
-                exposure="0.9"
+                shadow-intensity={isLowEndDevice ? "0.3" : "0.6"}
+                shadow-softness={isLowEndDevice ? "0.5" : "1"}
+                exposure="1.0"
                 loading="eager"
                 reveal="auto"
                 camera-controls
-                auto-rotate="false"
-                min-camera-orbit="auto 0deg auto"
+                touch-action="none"
+                auto-rotate
+                auto-rotate-delay="1500"
+                rotation-per-second="24deg"
+                interaction-prompt="auto"
+                interaction-prompt-threshold="3000"
+                interpolation-decay="100"
+                min-camera-orbit="auto 10deg auto"
                 max-camera-orbit="auto 90deg auto"
-                interpolation-decay="200"
+                min-field-of-view="18deg"
+                max-field-of-view="45deg"
+                field-of-view="30deg"
+                camera-orbit="0deg 55deg auto"
                 orientation={
                   selectedDish.ar_model_id && selectedDish.ar_model 
                     ? `${selectedDish.ar_model.normalized_rotation_x || 0}rad ${selectedDish.ar_model.normalized_rotation_y || 0}rad ${selectedDish.ar_model.normalized_rotation_z || 0}rad`
                     : "0 180deg 0"
                 }
-                style={{ width: '100%', height: '100%', display: 'block', backgroundColor: '#f0f0f0' }}
+                style={{ width: '100%', height: '100%', display: 'block', background: 'radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%)' }}
                 onProgress={(e) => {
                   if (e.detail && typeof e.detail.totalProgress === 'number') {
                     setArProgress(Math.round(e.detail.totalProgress * 100));
@@ -1349,28 +1356,43 @@ const PublicMenu = () => {
                   const viewer = e.target;
                   
                   if (selectedDish.ar_model_id && selectedDish.ar_model) {
-                    // Apply persistent library transforms
                     const scaleVal = selectedDish.ar_model.normalized_scale || 1.0;
                     viewer.scale = `${scaleVal} ${scaleVal} ${scaleVal}`;
                     viewer.modelPosition = `0 ${selectedDish.ar_model.normalized_height_offset || 0} 0`;
                   } else {
-                    // Automatic Size Normalization
+                    // Auto-normalize any model to consistent visual size
                     const size = viewer.getDimensions();
                     const maxDimension = Math.max(size.x, size.y, size.z);
                     
-                    let targetSize = 0.25; // default 25cm
+                    let targetSize = 0.25;
                     const cat = (selectedDish.category || '').toLowerCase();
                     if (cat.includes('burger') || cat.includes('sandwich')) targetSize = 0.15;
                     else if (cat.includes('pizza')) targetSize = 0.35;
-                    else if (cat.includes('drink') || cat.includes('beverage')) targetSize = 0.20; // Will scale max dim (usually height) to 20cm
+                    else if (cat.includes('drink') || cat.includes('beverage')) targetSize = 0.20;
 
                     const scale = maxDimension > 0 ? targetSize / maxDimension : 1;
                     viewer.scale = `${scale} ${scale} ${scale}`;
 
-                    // Automatic Grounding Correction
+                    // Ground the model: shift so bottom sits at y=0
                     const center = viewer.getBoundingBoxCenter();
                     const bottomY = center.y - (size.y / 2);
                     viewer.modelPosition = `0 ${-bottomY} 0`;
+                  }
+
+                  // Dynamic camera framing: pull camera back based on model size
+                  try {
+                    const dims = viewer.getDimensions();
+                    const maxDim = Math.max(dims.x, dims.y, dims.z);
+                    // Bounding sphere radius, padded for comfortable framing (75% viewport)
+                    const radius = maxDim * 0.75;
+                    const fovRad = (30 * Math.PI) / 180; // 30deg FOV
+                    const distance = radius / Math.sin(fovRad / 2);
+                    // Clamp between reasonable bounds
+                    const clampedDist = Math.max(0.3, Math.min(distance, 5.0));
+                    viewer.cameraOrbit = `0deg 55deg ${clampedDist}m`;
+                    viewer.cameraTarget = `auto auto auto`;
+                  } catch (err) {
+                    console.warn('Camera framing fallback:', err);
                   }
                 }}
                 data-device-memory={navigator.deviceMemory}
