@@ -14,7 +14,6 @@ import './ARViewer.css';
 const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analyticsService }) => {
   // UI state
   const [arLoading, setArLoading] = useState(true);
-  const [arProgress, setArProgress] = useState(0);
   const [arError, setArError] = useState(false);
   const [isArSessionActive, setIsArSessionActive] = useState(false);
 
@@ -28,6 +27,8 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
     const onArStatus = (event) => {
       if (event.detail.status === 'session-started') {
         setIsArSessionActive(true);
+        setArLoading(false);
+        setArError(false);
       } else if (event.detail.status === 'not-presenting') {
         setIsArSessionActive(false);
       }
@@ -36,23 +37,12 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
     return () => viewer.removeEventListener('ar-status', onArStatus);
   }, [isOpen, dish]);
 
-  // ── Loading timeout ────────────────────────────────────────
-  useEffect(() => {
-    let timeoutId;
-    if (isOpen && arLoading) {
-      timeoutId = setTimeout(() => {
-        setArError(true);
-        setArLoading(false);
-      }, 15000);
-    }
-    return () => clearTimeout(timeoutId);
-  }, [isOpen, arLoading]);
+
 
   // ── Reset state when dish changes ──────────────────────────
   useEffect(() => {
     if (isOpen && dish) {
       setArLoading(true);
-      setArProgress(0);
       setArError(false);
     }
   }, [isOpen, dish?.id]);
@@ -145,85 +135,73 @@ const ARViewer = ({ dish, isOpen, onClose, isLowEndDevice, restaurant, analytics
 
       {/* ── Viewer Body ── */}
       <div className="arv-body">
-        {arError ? (
-          <div className="arv-error">
-            <p>Failed to load 3D model.<br />Please try again.</p>
-            <Button onClick={() => { setArError(false); setArLoading(true); }}>Retry</Button>
-          </div>
-        ) : (
-          <model-viewer
-            ref={viewerRef}
-            src={glbUrl}
-            ios-src={usdzUrl || undefined}
-            alt={`A 3D model of ${dish.name}`}
-            ar
-            ar-modes="webxr scene-viewer quick-look"
-            ar-scale="auto"
-            ar-placement="floor"
-            environment-image="neutral"
-            shadow-intensity={isLowEndDevice ? '0.3' : '0.6'}
-            shadow-softness={isLowEndDevice ? '0.5' : '1'}
-            exposure="1.0"
-            loading="eager"
-            reveal="auto"
-            camera-controls
-            touch-action="pan-y"
-            auto-rotate
-            auto-rotate-delay="1500"
-            rotation-per-second="24deg"
-            interaction-prompt="auto"
-            interpolation-decay="100"
-            min-camera-orbit="auto 10deg auto"
-            max-camera-orbit="auto 90deg auto"
-            min-field-of-view="18deg"
-            max-field-of-view="45deg"
-            field-of-view="30deg"
-            camera-orbit="0deg 55deg auto"
-            orientation={orientationAttr}
-            className="arv-model-viewer"
-            onProgress={(e) => {
-              if (e.detail && typeof e.detail.totalProgress === 'number') {
-                setArProgress(Math.round(e.detail.totalProgress * 100));
-              }
-            }}
-            onError={(e) => {
-              console.error('Model viewer error:', e);
+        <model-viewer
+          ref={viewerRef}
+          src={glbUrl}
+          ios-src={usdzUrl || undefined}
+          alt={`A 3D model of ${dish.name}`}
+          ar
+          ar-modes="webxr scene-viewer quick-look"
+          ar-scale="auto"
+          ar-placement="floor"
+          environment-image="neutral"
+          shadow-intensity={isLowEndDevice ? '0.3' : '0.6'}
+          shadow-softness={isLowEndDevice ? '0.5' : '1'}
+          exposure="1.0"
+          loading="eager"
+          reveal="auto"
+          camera-controls
+          touch-action="pan-y"
+          auto-rotate
+          auto-rotate-delay="1500"
+          rotation-per-second="24deg"
+          interaction-prompt="auto"
+          interpolation-decay="100"
+          min-camera-orbit="auto 10deg auto"
+          max-camera-orbit="auto 90deg auto"
+          min-field-of-view="18deg"
+          max-field-of-view="45deg"
+          field-of-view="30deg"
+          camera-orbit="0deg 55deg auto"
+          orientation={orientationAttr}
+          className="arv-model-viewer"
+          onError={(e) => {
+            console.error('Model viewer error:', e);
+            if (!isArSessionActive) {
               setArError(true);
               setArLoading(false);
-            }}
-            onLoad={handleModelLoad}
-            data-device-memory={navigator.deviceMemory}
-          >
-            {/* AR Button (inside model-viewer slot) */}
-            <button slot="ar-button" className="arv-ar-button">
-              <Sparkles size={20} />
-              Launch Real AR
+            }
+          }}
+          onLoad={handleModelLoad}
+          data-device-memory={navigator.deviceMemory}
+        >
+          {/* AR Button (inside model-viewer slot) */}
+          <button slot="ar-button" className="arv-ar-button">
+            <Sparkles size={20} />
+            Launch Real AR
+          </button>
+
+          {/* Recenter button during AR session */}
+          {isArSessionActive && (
+            <button
+              className="arv-recenter-btn"
+              onClick={() => viewerRef.current?.resetCamera()}
+            >
+              Recenter Dish
             </button>
+          )}
+        </model-viewer>
 
-            {/* Recenter button during AR session */}
-            {isArSessionActive && (
-              <button
-                className="arv-recenter-btn"
-                onClick={() => viewerRef.current?.resetCamera()}
-              >
-                Recenter Dish
-              </button>
-            )}
 
-            {/* Loading indicator */}
-            {arLoading && (
-              <div slot="progress-bar" className="arv-loading">
-                <Loader />
-                <p className="arv-loading-text">Loading 3D Model...</p>
-                <div className="arv-loading-bar">
-                  <div
-                    className="arv-loading-bar-fill"
-                    style={{ width: `${arProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-          </model-viewer>
+
+        {/* Error overlay - positioned over model-viewer, but doesn't unmount it */}
+        {arError && !isArSessionActive && (
+          <div className="arv-error" style={{ background: 'rgba(15, 23, 42, 0.9)', padding: '2rem', borderRadius: '1rem', border: '1px solid #334155' }}>
+            <p style={{ color: '#f87171', marginBottom: '1.5rem', fontWeight: 'bold' }}>
+              Failed to load 3D model.<br />Please check your network.
+            </p>
+            <Button onClick={() => { setArError(false); setArLoading(true); }}>Retry</Button>
+          </div>
         )}
       </div>
     </div>
