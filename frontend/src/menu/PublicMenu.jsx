@@ -13,6 +13,7 @@ import Modal from '../components/Modal';
 import Button from '../components/Button';
 import { toMoneyNumber, formatRupee, lineTotal, sumOrderItems } from '../utils/money';
 import './PublicMenu.css';
+import ARViewer from './ARViewer';
 
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -50,29 +51,9 @@ const PublicMenu = () => {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isDropReviewOpen, setIsDropReviewOpen] = useState(false);
   const [isARViewerOpen, setIsARViewerOpen] = useState(false);
-  const [arProgress, setArProgress] = useState(0);
-  const [arLoading, setArLoading] = useState(false);
-  const [arError, setArError] = useState(false);
   const isLowEndDevice = navigator.deviceMemory <= 4;
   const [hoveredStar, setHoveredStar] = useState(0);
-  const modelViewerRef = useRef(null);
-  const [isArSessionActive, setIsArSessionActive] = useState(false);
 
-  useEffect(() => {
-    const viewer = modelViewerRef.current;
-    if (!viewer) return;
-    const onArStatus = (event) => {
-      if (event.detail.status === 'session-started') {
-        setIsArSessionActive(true);
-      } else if (event.detail.status === 'not-presenting') {
-        setIsArSessionActive(false);
-      }
-    };
-    viewer.addEventListener('ar-status', onArStatus);
-    return () => viewer.removeEventListener('ar-status', onArStatus);
-  }, [isARViewerOpen, selectedDish]);
-
-  
   const [dishSuggestions, setDishSuggestions] = useState([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [addingSuggestionId, setAddingSuggestionId] = useState(null);
@@ -99,17 +80,7 @@ const PublicMenu = () => {
   const searchSectionRef = useRef(null);
   const heroRef = useRef(null);
 
-  // AR Timeout Logic
-  useEffect(() => {
-    let timeoutId;
-    if (isARViewerOpen && arLoading) {
-      timeoutId = setTimeout(() => {
-        setArError(true);
-        setArLoading(false);
-      }, 15000);
-    }
-    return () => clearTimeout(timeoutId);
-  }, [isARViewerOpen, arLoading]);
+
 
   // Reset ordering options when modal opens
   useEffect(() => {
@@ -1289,141 +1260,14 @@ const PublicMenu = () => {
       </Modal>
 
       {/* 3D AR Viewer Modal */}
-      {isARViewerOpen && selectedDish && (
-        <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', backgroundColor: 'black', zIndex: 9999, display: 'flex', flexDirection: 'column', overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' }}>
-          <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10, background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}>
-            <h3 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>{selectedDish.name} - 3D AR</h3>
-            <button onClick={() => setIsARViewerOpen(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-              <X size={24} />
-            </button>
-          </div>
-          
-          <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%' }}>
-            {arError ? (
-              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#f87171' }}>
-                <p style={{ marginBottom: '1rem', fontWeight: 'bold' }}>Failed to load 3D model.<br/>Please try again.</p>
-                <Button onClick={() => { setArError(false); setArLoading(true); }}>Retry</Button>
-              </div>
-            ) : (
-              <model-viewer
-                ref={modelViewerRef}
-                src={selectedDish.ar_model?.glb_url || undefined}
-                ios-src={selectedDish.ar_model?.usdz_url || undefined}
-                alt={`A 3D model of ${selectedDish.name}`}
-                ar
-                ar-modes="webxr scene-viewer quick-look"
-                ar-scale="fixed"
-                ar-placement="floor"
-                bounds="tight"
-                environment-image="neutral"
-                shadow-intensity={isLowEndDevice ? "0.3" : "0.6"}
-                shadow-softness={isLowEndDevice ? "0.5" : "1"}
-                exposure="1.0"
-                loading="eager"
-                reveal="auto"
-                camera-controls
-                touch-action="none"
-                auto-rotate
-                auto-rotate-delay="1500"
-                rotation-per-second="24deg"
-                interaction-prompt="auto"
-                interaction-prompt-threshold="3000"
-                interpolation-decay="100"
-                min-camera-orbit="auto 10deg auto"
-                max-camera-orbit="auto 90deg auto"
-                min-field-of-view="18deg"
-                max-field-of-view="45deg"
-                field-of-view="30deg"
-                camera-orbit="0deg 55deg auto"
-                orientation={
-                  selectedDish.ar_model_id && selectedDish.ar_model 
-                    ? `${selectedDish.ar_model.normalized_rotation_x || 0}rad ${selectedDish.ar_model.normalized_rotation_y || 0}rad ${selectedDish.ar_model.normalized_rotation_z || 0}rad`
-                    : "0 180deg 0"
-                }
-                style={{ width: '100%', height: '100%', display: 'block', background: 'radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%)' }}
-                onProgress={(e) => {
-                  if (e.detail && typeof e.detail.totalProgress === 'number') {
-                    setArProgress(Math.round(e.detail.totalProgress * 100));
-                  }
-                }}
-                onError={(e) => {
-                  console.error("Model viewer error:", e);
-                  setArError(true);
-                  setArLoading(false);
-                }}
-                onLoad={(e) => {
-                  setArLoading(false);
-                  const viewer = e.target;
-                  
-                  if (selectedDish.ar_model_id && selectedDish.ar_model) {
-                    const scaleVal = selectedDish.ar_model.normalized_scale || 1.0;
-                    viewer.scale = `${scaleVal} ${scaleVal} ${scaleVal}`;
-                    viewer.modelPosition = `0 ${selectedDish.ar_model.normalized_height_offset || 0} 0`;
-                  } else {
-                    // Auto-normalize any model to consistent visual size
-                    const size = viewer.getDimensions();
-                    const maxDimension = Math.max(size.x, size.y, size.z);
-                    
-                    let targetSize = 0.25;
-                    const cat = (selectedDish.category || '').toLowerCase();
-                    if (cat.includes('burger') || cat.includes('sandwich')) targetSize = 0.15;
-                    else if (cat.includes('pizza')) targetSize = 0.35;
-                    else if (cat.includes('drink') || cat.includes('beverage')) targetSize = 0.20;
-
-                    const scale = maxDimension > 0 ? targetSize / maxDimension : 1;
-                    viewer.scale = `${scale} ${scale} ${scale}`;
-
-                    // Ground the model: shift so bottom sits at y=0
-                    const center = viewer.getBoundingBoxCenter();
-                    const bottomY = center.y - (size.y / 2);
-                    viewer.modelPosition = `0 ${-bottomY} 0`;
-                  }
-
-                  // Dynamic camera framing: pull camera back based on model size
-                  try {
-                    const dims = viewer.getDimensions();
-                    const maxDim = Math.max(dims.x, dims.y, dims.z);
-                    // Bounding sphere radius, padded for comfortable framing (75% viewport)
-                    const radius = maxDim * 0.75;
-                    const fovRad = (30 * Math.PI) / 180; // 30deg FOV
-                    const distance = radius / Math.sin(fovRad / 2);
-                    // Clamp between reasonable bounds
-                    const clampedDist = Math.max(0.3, Math.min(distance, 5.0));
-                    viewer.cameraOrbit = `0deg 55deg ${clampedDist}m`;
-                    viewer.cameraTarget = `auto auto auto`;
-                  } catch (err) {
-                    console.warn('Camera framing fallback:', err);
-                  }
-                }}
-                data-device-memory={navigator.deviceMemory}
-              >
-                {arLoading && (
-                  <div slot="progress-bar" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', color: '#16a34a' }}>
-                    <Loader />
-                    <p style={{ marginTop: '1rem', fontWeight: 'bold' }}>Loading 3D Model... {arProgress}%</p>
-                  </div>
-                )}
-                <button slot="ar-button" style={{ position: 'fixed', bottom: 'env(safe-area-inset-bottom, 20px)', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#0f172a', color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '2rem', fontSize: '1.125rem', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', cursor: 'pointer', display: 'flex', gap: '0.5rem', alignItems: 'center', zIndex: 10 }}>
-                  <Sparkles size={20} /> Launch Real AR
-                </button>
-                {isArSessionActive && (
-                  <button 
-                    onClick={() => {
-                      if (modelViewerRef.current) {
-                        modelViewerRef.current.resetCamera();
-                      }
-                    }}
-                    style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'rgba(255, 255, 255, 0.8)', color: '#0f172a', border: '1px solid #cbd5e1', padding: '0.5rem 1rem', borderRadius: '1rem', fontSize: '0.875rem', fontWeight: 'bold', cursor: 'pointer', zIndex: 11 }}
-                    className="ar-recenter-btn"
-                  >
-                    Recenter Dish
-                  </button>
-                )}
-              </model-viewer>
-            )}
-          </div>
-        </div>
-      )}
+      <ARViewer
+        dish={selectedDish}
+        isOpen={isARViewerOpen}
+        onClose={() => setIsARViewerOpen(false)}
+        isLowEndDevice={isLowEndDevice}
+        restaurant={restaurant}
+        analyticsService={analyticsService}
+      />
 
       {/* Modern Review Experience Modal */}
       {isReviewModalOpen && selectedDish && (
