@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   Star, Clock, Flame, Info, Search, Sparkles, Camera, ShoppingBag, Plus, Minus, X,
-  UtensilsCrossed, MapPin, Phone, ScanLine, Layers, Menu, Home, User, Image as ImageIcon
+  UtensilsCrossed, MapPin, Phone, ScanLine, Layers, Menu, Home, User, Image as ImageIcon,
+  AlertCircle
 } from 'lucide-react';
 import api, { getImageUrl } from '../services/api';
 import analyticsService from '../services/analyticsService';
@@ -1273,7 +1274,7 @@ const PublicMenu = () => {
 
       {/* 3D AR Viewer Modal */}
       {isARViewerOpen && selectedDish && (
-        <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'black', zIndex: 9999, display: 'flex', flexDirection: 'column', overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' }}>
+        <div className="fade-in" style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100dvh', backgroundColor: 'black', zIndex: 9999, display: 'flex', flexDirection: 'column', overflow: 'hidden', touchAction: 'none', overscrollBehavior: 'none' }}>
           <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10, background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)' }}>
             <h3 style={{ color: 'white', margin: 0, fontSize: '1.25rem' }}>{selectedDish.name} - 3D AR</h3>
             <button onClick={() => setIsARViewerOpen(false)} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.5rem', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>

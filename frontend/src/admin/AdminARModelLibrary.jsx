@@ -96,6 +96,17 @@ const AdminARModelLibrary = () => {
           normalized_scale: parseFloat(autoScale.toFixed(4)),
           normalized_height_offset: parseFloat((-lowestPoint).toFixed(4))
         }));
+
+        // Memory leak fix: dispose geometries and materials
+        scene.traverse((child) => {
+          if (child.isMesh) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) child.material.forEach(m => m.dispose && m.dispose());
+              else if (child.material.dispose) child.material.dispose();
+            }
+          }
+        });
       },
       undefined,
       (err) => {
@@ -223,6 +234,17 @@ const AdminARModelLibrary = () => {
           normalized_rotation_x: rotX, normalized_rotation_y: rotY, normalized_rotation_z: rotZ,
           normalized_scale: parseFloat(autoScale.toFixed(4)), normalized_height_offset: parseFloat((-lowestPoint).toFixed(4)),
         });
+
+        // Memory leak fix: dispose geometries and materials
+        scene.traverse((child) => {
+          if (child.isMesh) {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) {
+              if (Array.isArray(child.material)) child.material.forEach(m => m.dispose && m.dispose());
+              else if (child.material.dispose) child.material.dispose();
+            }
+          }
+        });
       } catch (err) {
         newBulkFiles.push({
           id: Date.now() + i, file, objectUrl, dish_name, category: '', tags: '',
@@ -242,35 +264,42 @@ const AdminARModelLibrary = () => {
     let successCount = 0;
     let failCount = 0;
 
-    for (let i = 0; i < bulkFiles.length; i++) {
-      const bf = bulkFiles[i];
-      if (bf.status === 'success') continue;
+    const uploadBatch = async (batch) => {
+      const promises = batch.map(async (bf) => {
+        if (bf.status === 'success') return;
 
-      setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'uploading' } : f));
+        setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'uploading' } : f));
 
-      const data = new FormData();
-      data.append('dish_name', bf.dish_name);
-      data.append('category', bf.category);
-      data.append('tags', bf.tags);
-      data.append('glb_model', bf.file);
-      data.append('normalized_rotation_x', bf.normalized_rotation_x);
-      data.append('normalized_rotation_y', bf.normalized_rotation_y);
-      data.append('normalized_rotation_z', bf.normalized_rotation_z);
-      data.append('normalized_scale', bf.normalized_scale);
-      data.append('normalized_height_offset', bf.normalized_height_offset);
+        const data = new FormData();
+        data.append('dish_name', bf.dish_name);
+        data.append('category', bf.category);
+        data.append('tags', bf.tags);
+        data.append('glb_model', bf.file);
+        data.append('normalized_rotation_x', bf.normalized_rotation_x);
+        data.append('normalized_rotation_y', bf.normalized_rotation_y);
+        data.append('normalized_rotation_z', bf.normalized_rotation_z);
+        data.append('normalized_scale', bf.normalized_scale);
+        data.append('normalized_height_offset', bf.normalized_height_offset);
 
-      try {
-        await api.post('/admin/ar-models', data, { headers: { 'Content-Type': 'multipart/form-data' } });
-        successCount++;
-        setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'success' } : f));
-      } catch (err) {
-        console.error(`Failed to upload ${bf.dish_name}:`, err);
-        failCount++;
-        setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'error' } : f));
-      }
-      
-      // Update progress
-      setBulkProgress(prev => ({ ...prev, processed: i + 1 }));
+        try {
+          await api.post('/admin/ar-models', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+          successCount++;
+          setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'success' } : f));
+        } catch (err) {
+          console.error(`Failed to upload ${bf.dish_name}:`, err);
+          failCount++;
+          setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'error' } : f));
+        }
+        
+        setBulkProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
+      });
+      await Promise.all(promises);
+    };
+
+    // Run in chunks of 5 for controlled concurrency
+    for (let i = 0; i < bulkFiles.length; i += 5) {
+      const batch = bulkFiles.slice(i, i + 5);
+      await uploadBatch(batch);
     }
 
     alert(`Bulk upload completed! ${successCount} succeeded, ${failCount} failed.`);

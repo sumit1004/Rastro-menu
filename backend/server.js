@@ -4,9 +4,11 @@ const dotenv = require('dotenv');
 const helmet = require('helmet');
 const path = require('path');
 const fs = require('fs');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
+const logger = require('./utils/logger');
 
 dotenv.config();
 
@@ -17,8 +19,33 @@ const PORT = process.env.PORT || 5000;
 // Trust proxy for Render deployment
 app.set('trust proxy', 1);
 
-// Security Middleware
-app.use(helmet({ crossOriginResourcePolicy: false })); // Allow cross-origin for images
+// Security Middleware (Helmet CSP and headers)
+app.use(helmet({
+  crossOriginResourcePolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://res.cloudinary.com", "https://images.unsplash.com"],
+      connectSrc: ["'self'", "https://res.cloudinary.com", process.env.FRONTEND_URL],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      mediaSrc: ["'self'", "blob:", "https://res.cloudinary.com"],
+      workerSrc: ["'self'", "blob:"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+}));
+
+// Global Cache-Control for GET requests
+app.use((req, res, next) => {
+  if (req.method === 'GET') {
+    // Basic cache for API responses (1 minute) to reduce load during spikes
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
+  }
+  next();
+});
 
 // CORS Configuration
 const allowedOrigins = [
@@ -39,6 +66,7 @@ app.use(cors({
 }));
 
 app.use(express.json());
+app.use(compression());
 
 // Socket.io Setup
 const io = new Server(server, {
@@ -125,14 +153,14 @@ app.use('/api/suggestions', suggestionRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  logger.error('Unhandled Server Error', { error: err.message, stack: err.stack, path: req.path });
   res.status(500).json({ error: 'Something went wrong!', details: err.message });
 });
 
 server.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`);
+  logger.info(`Server running on port ${PORT}`);
   if (!process.env.RESEND_API_KEY) {
-    console.warn('[email] RESEND_API_KEY is not set. Password reset emails may fail.');
+    logger.warn('[email] RESEND_API_KEY is not set. Password reset emails may fail.');
   }
 
   // Auto-migrate: ensure ar_model_library has normalized columns
@@ -156,13 +184,16 @@ server.listen(PORT, async () => {
 
     for (const col of toAdd) {
       await pool.query(`ALTER TABLE ar_model_library ADD COLUMN ${col.name} ${col.def}`);
-      console.log(`[migration] Added column ar_model_library.${col.name}`);
+      logger.info(`[migration] Added column ar_model_library.${col.name}`);
     }
     if (toAdd.length === 0) {
-      console.log('[migration] ar_model_library schema is up to date.');
+      logger.info('[migration] ar_model_library schema is up to date.');
     }
   } catch (migErr) {
-    console.warn('[migration] Could not verify/migrate ar_model_library columns:', migErr.message);
+    logger.warn(`[migration] Could not verify/migrate ar_model_library columns: ${migErr.message}`);
   }
+
+  // Prevent hanging requests
+  server.setTimeout(30000); // 30 seconds
 });
 

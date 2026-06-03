@@ -5,13 +5,13 @@ import { AuthContext, AuthProvider } from './context/AuthContext';
 import { SubscriptionProvider } from './context/SubscriptionContext';
 import Loader from './components/Loader';
 
-// Pages
-import LandingPage from './pages/Landing/LandingPage';
-import PublicMenu from './menu/PublicMenu';
-import Legal from './pages/Legal';
-
 // Lazy Loaded Pages
 import { Suspense, lazy } from 'react';
+const LandingPage = lazy(() => import('./pages/Landing/LandingPage'));
+const PublicMenu = lazy(() => import('./menu/PublicMenu'));
+const Legal = lazy(() => import('./pages/Legal'));
+
+
 const Login = lazy(() => import('./auth/Login'));
 const Signup = lazy(() => import('./auth/Signup'));
 const ForgotPassword = lazy(() => import('./auth/ForgotPassword'));

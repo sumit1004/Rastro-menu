@@ -193,3 +193,9 @@ CREATE TABLE IF NOT EXISTS dish_pairings (
 CREATE INDEX idx_dish_pairings_dish_id ON dish_pairings(dish_id);
 CREATE INDEX idx_dish_pairings_restaurant_id ON dish_pairings(restaurant_id);
 
+-- Additional Indexes for Production Hardening
+CREATE INDEX idx_dishes_category ON dishes(category);
+CREATE INDEX idx_dishes_is_featured ON dishes(is_featured);
+CREATE INDEX idx_dishes_is_available ON dishes(is_available);
+CREATE INDEX idx_dishes_created_at ON dishes(created_at);
+CREATE INDEX idx_ar_model_library_category ON ar_model_library(category);
