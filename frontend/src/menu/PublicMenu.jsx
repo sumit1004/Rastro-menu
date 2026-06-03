@@ -55,6 +55,22 @@ const PublicMenu = () => {
   const [arError, setArError] = useState(false);
   const isLowEndDevice = navigator.deviceMemory <= 4;
   const [hoveredStar, setHoveredStar] = useState(0);
+  const modelViewerRef = useRef(null);
+  const [isArSessionActive, setIsArSessionActive] = useState(false);
+
+  useEffect(() => {
+    const viewer = modelViewerRef.current;
+    if (!viewer) return;
+    const onArStatus = (event) => {
+      if (event.detail.status === 'session-started') {
+        setIsArSessionActive(true);
+      } else if (event.detail.status === 'not-presenting') {
+        setIsArSessionActive(false);
+      }
+    };
+    viewer.addEventListener('ar-status', onArStatus);
+    return () => viewer.removeEventListener('ar-status', onArStatus);
+  }, [isARViewerOpen, selectedDish]);
 
   
   const [dishSuggestions, setDishSuggestions] = useState([]);
@@ -1290,12 +1306,16 @@ const PublicMenu = () => {
               </div>
             ) : (
               <model-viewer
+                ref={modelViewerRef}
                 src={selectedDish.ar_model?.glb_url || undefined}
                 ios-src={selectedDish.ar_model?.usdz_url || undefined}
                 alt={`A 3D model of ${selectedDish.name}`}
                 ar
                 ar-modes="webxr scene-viewer quick-look"
                 ar-scale="fixed"
+                ar-placement="floor"
+                disable-pan
+                disable-zoom
                 bounds="tight"
                 environment-image="neutral"
                 shadow-intensity={isLowEndDevice ? "0.2" : "0.4"}
@@ -1364,6 +1384,19 @@ const PublicMenu = () => {
                 <button slot="ar-button" style={{ position: 'fixed', bottom: 'env(safe-area-inset-bottom, 20px)', left: '50%', transform: 'translateX(-50%)', backgroundColor: '#0f172a', color: 'white', border: 'none', padding: '1rem 2rem', borderRadius: '2rem', fontSize: '1.125rem', fontWeight: 'bold', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', cursor: 'pointer', display: 'flex', gap: '0.5rem', alignItems: 'center', zIndex: 10 }}>
                   <Sparkles size={20} /> Launch Real AR
                 </button>
+                {isArSessionActive && (
+                  <button 
+                    onClick={() => {
+                      if (modelViewerRef.current) {
+                        modelViewerRef.current.resetCamera();
+                      }
+                    }}
+                    style={{ position: 'absolute', top: '20px', right: '20px', backgroundColor: 'rgba(255, 255, 255, 0.8)', color: '#0f172a', border: '1px solid #cbd5e1', padding: '0.5rem 1rem', borderRadius: '1rem', fontSize: '0.875rem', fontWeight: 'bold', cursor: 'pointer', zIndex: 11 }}
+                    className="ar-recenter-btn"
+                  >
+                    Recenter Dish
+                  </button>
+                )}
               </model-viewer>
             )}
           </div>

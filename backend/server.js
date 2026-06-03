@@ -41,8 +41,24 @@ app.use(helmet({
 // Global Cache-Control for GET requests
 app.use((req, res, next) => {
   if (req.method === 'GET') {
-    // Basic cache for API responses (1 minute) to reduce load during spikes
-    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
+    if (req.path.startsWith('/api/public')) {
+      // Basic cache for public API responses (1 minute) to reduce load during spikes
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60');
+    } else if (
+      req.path.startsWith('/api/dishes') || 
+      req.path.startsWith('/api/admin') || 
+      req.path.startsWith('/api/dashboard') ||
+      req.path.startsWith('/api/auth')
+    ) {
+      // Prevent stale data and caching for CRUD, admin, dashboard, and auth
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+    } else {
+      // Default fallback (no aggressive caching to be safe)
+      res.setHeader('Cache-Control', 'no-cache');
+    }
   }
   next();
 });

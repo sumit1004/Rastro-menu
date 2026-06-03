@@ -347,15 +347,22 @@ const deleteDish = async (req, res) => {
     if (existing.length === 0) return res.status(404).json({ message: 'Dish not found or unauthorized' });
 
     const dish = existing[0];
-    try {
-      if (dish.glb_model_url) await deleteFromCloudinary(dish.glb_model_url);
-      if (dish.usdz_model_url) await deleteFromCloudinary(dish.usdz_model_url);
-    } catch (cleanupError) {
-      console.warn("Cloudinary cleanup failed during dish delete (proceeding with DB deletion):", cleanupError);
-    }
-
+    
+    // 1. Delete DB row FIRST
     await pool.query('DELETE FROM dishes WHERE id = ?', [dishId]);
-    res.json({ message: 'Dish deleted' });
+    
+    // 2. Return success to frontend immediately
+    res.json({ success: true, message: 'Dish deleted' });
+
+    // 3. Cleanup Cloudinary asynchronously
+    (async () => {
+      try {
+        if (dish.glb_model_url) await deleteFromCloudinary(dish.glb_model_url);
+        if (dish.usdz_model_url) await deleteFromCloudinary(dish.usdz_model_url);
+      } catch (cleanupError) {
+        console.warn("Cloudinary cleanup failed after dish delete:", cleanupError);
+      }
+    })();
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
