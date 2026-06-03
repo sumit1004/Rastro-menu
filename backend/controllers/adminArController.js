@@ -36,15 +36,9 @@ const uploadArModel = async (req, res) => {
       return res.status(400).json({ message: 'GLB model is required' });
     }
 
-    // Optimize and Upload GLB
+    // Upload unoptimized GLB first
     const originalGlbPath = req.files['glb_model'][0].path;
-    const optimizedGlbPath = await optimizeGlb(originalGlbPath);
-    glbUrl = await uploadToCloudinary(optimizedGlbPath, 'models/glb');
-    
-    try { fs.unlinkSync(originalGlbPath); } catch (e) {}
-    if (optimizedGlbPath !== originalGlbPath) {
-      try { fs.unlinkSync(optimizedGlbPath); } catch (e) {}
-    }
+    glbUrl = await uploadToCloudinary(originalGlbPath, 'models/glb');
 
     // Upload USDZ if present
     if (req.files['usdz_model']) {
@@ -74,6 +68,24 @@ const uploadArModel = async (req, res) => {
     );
 
     res.status(201).json({ message: 'Model uploaded successfully', id: result.insertId });
+
+    // Background Optimization Pipeline
+    (async () => {
+      try {
+        const optimizedPath = await optimizeGlb(originalGlbPath);
+        if (optimizedPath !== originalGlbPath) {
+          const newGlbUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
+          await pool.query('UPDATE ar_model_library SET glb_url = ? WHERE id = ?', [newGlbUrl, result.insertId]);
+          // Propagate to dishes table if any dishes use this ar_model_id
+          await pool.query('UPDATE dishes SET glb_model_url = ? WHERE ar_model_id = ?', [newGlbUrl, result.insertId]);
+          try { fs.unlinkSync(optimizedPath); } catch (e) {}
+        }
+      } catch (e) {
+        console.warn('Background optimization failed (keeping original):', e);
+      } finally {
+        try { fs.unlinkSync(originalGlbPath); } catch (e) {}
+      }
+    })();
   } catch (error) {
     console.error('Error uploading AR model:', error);
     res.status(500).json({ message: 'Server error' });
@@ -194,80 +206,90 @@ const bulkUploadArModels = async (req, res) => {
 
     const results = [];
     const errors = [];
+    const backgroundTasks = [];
 
-    // Process files sequentially to not overwhelm server/Cloudinary
-    for (let i = 0; i < req.files.length; i++) {
-      const file = req.files[i];
-      const originalPath = file.path;
-      
-      // Find matching metadata by filename (or assume same order)
-      let meta = metadataArray.find(m => m.filename === file.originalname) || metadataArray[i] || {};
-      
-      const dish_name = meta.dish_name || file.originalname.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase());
-      const category = meta.category || null;
-      const tags = meta.tags || null;
-      const rotX = parseFloat(meta.normalized_rotation_x) || 0.0000;
-      const rotY = parseFloat(meta.normalized_rotation_y) || 0.0000;
-      const rotZ = parseFloat(meta.normalized_rotation_z) || 0.0000;
-      const scale = parseFloat(meta.normalized_scale) || 1.0000;
-      const heightOffset = parseFloat(meta.normalized_height_offset) || 0.0000;
-
-      let dish_slug = dish_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-
-      try {
-        // Check slug uniqueness
-        let [existing] = await pool.query('SELECT id FROM ar_model_library WHERE dish_slug = ?', [dish_slug]);
-        if (existing.length > 0) {
-          // If a model with this exact slug exists, we can optionally skip or append timestamp.
-          // Let's append timestamp to allow same-named variations, or skip.
-          // For bulk, let's append timestamp so we don't fail.
-          dish_slug = `${dish_slug}-${Date.now()}`;
-        }
-
-        // Optimize and Upload GLB
-        const optimizedGlbPath = await optimizeGlb(originalPath);
-        const glbUrl = await uploadToCloudinary(optimizedGlbPath, 'models/glb');
+    // Parallelize Cloudinary uploads, max 5 at a time
+    let idx = 0;
+    const processUploadWorker = async () => {
+      while (idx < req.files.length) {
+        const i = idx++;
+        const file = req.files[i];
+        const originalPath = file.path;
         
-        try { fs.unlinkSync(originalPath); } catch (e) {}
-        if (optimizedGlbPath !== originalPath) {
-          try { fs.unlinkSync(optimizedGlbPath); } catch (e) {}
+        let meta = metadataArray.find(m => m.filename === file.originalname) || metadataArray[i] || {};
+        
+        const dish_name = meta.dish_name || file.originalname.replace(/\.[^/.]+$/, "").replace(/[-_]+/g, ' ').replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+        const category = meta.category || null;
+        const tags = meta.tags || null;
+        const rotX = parseFloat(meta.normalized_rotation_x) || 0.0000;
+        const rotY = parseFloat(meta.normalized_rotation_y) || 0.0000;
+        const rotZ = parseFloat(meta.normalized_rotation_z) || 0.0000;
+        const scale = parseFloat(meta.normalized_scale) || 1.0000;
+        const heightOffset = parseFloat(meta.normalized_height_offset) || 0.0000;
+
+        let dish_slug = dish_name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+        try {
+          let [existing] = await pool.query('SELECT id FROM ar_model_library WHERE dish_slug = ?', [dish_slug]);
+          if (existing.length > 0) dish_slug = `${dish_slug}-${Date.now()}`;
+
+          // Upload original GLB
+          const glbUrl = await uploadToCloudinary(originalPath, 'models/glb');
+          const file_size_mb = (file.size / (1024 * 1024)).toFixed(2);
+
+          const [insertResult] = await pool.query(
+            `INSERT INTO ar_model_library 
+             (dish_name, dish_slug, category, tags, glb_url, file_size_mb, 
+              normalized_rotation_x, normalized_rotation_y, normalized_rotation_z, 
+              normalized_scale, normalized_height_offset) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [dish_name, dish_slug, category, tags, glbUrl, file_size_mb, rotX, rotY, rotZ, scale, heightOffset]
+          );
+
+          results.push({ id: insertResult.insertId, dish_name, status: 'success' });
+          backgroundTasks.push({ originalPath, insertId: insertResult.insertId });
+        } catch (err) {
+          console.error(`Error processing file ${file.originalname}:`, err);
+          try { fs.unlinkSync(originalPath); } catch (e) {}
+          errors.push({ filename: file.originalname, dish_name, error: err.message || 'Processing failed' });
         }
-
-        const file_size_mb = (file.size / (1024 * 1024)).toFixed(2);
-
-        const [insertResult] = await pool.query(
-          `INSERT INTO ar_model_library 
-           (dish_name, dish_slug, category, tags, glb_url, file_size_mb, 
-            normalized_rotation_x, normalized_rotation_y, normalized_rotation_z, 
-            normalized_scale, normalized_height_offset) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            dish_name, dish_slug, category, tags, glbUrl, file_size_mb,
-            rotX, rotY, rotZ, scale, heightOffset
-          ]
-        );
-
-        results.push({
-          id: insertResult.insertId,
-          dish_name,
-          status: 'success'
-        });
-      } catch (err) {
-        console.error(`Error processing file ${file.originalname}:`, err);
-        try { fs.unlinkSync(originalPath); } catch (e) {}
-        errors.push({
-          filename: file.originalname,
-          dish_name,
-          error: err.message || 'Processing failed'
-        });
       }
-    }
+    };
+    
+    // Max 5 concurrent uploads
+    const uploadWorkers = Array(Math.min(5, req.files.length)).fill(0).map(() => processUploadWorker());
+    await Promise.all(uploadWorkers);
 
     res.status(201).json({ 
       message: 'Bulk upload completed', 
       results,
       errors
     });
+
+    // Start background optimizations (max 5 concurrent)
+    (async () => {
+      let bIdx = 0;
+      const optimizeWorker = async () => {
+        while (bIdx < backgroundTasks.length) {
+          const task = backgroundTasks[bIdx++];
+          try {
+            const optimizedPath = await optimizeGlb(task.originalPath);
+            if (optimizedPath !== task.originalPath) {
+              const newGlbUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
+              await pool.query('UPDATE ar_model_library SET glb_url = ? WHERE id = ?', [newGlbUrl, task.insertId]);
+              await pool.query('UPDATE dishes SET glb_model_url = ? WHERE ar_model_id = ?', [newGlbUrl, task.insertId]);
+              try { fs.unlinkSync(optimizedPath); } catch (e) {}
+            }
+          } catch (err) {
+            console.warn('Background optimization failed for bulk (keeping original):', err);
+          } finally {
+            try { fs.unlinkSync(task.originalPath); } catch (e) {}
+          }
+        }
+      };
+      const optWorkers = Array(Math.min(5, backgroundTasks.length)).fill(0).map(() => optimizeWorker());
+      await Promise.all(optWorkers);
+    })();
   } catch (error) {
     console.error('Error in bulk AR upload:', error);
     res.status(500).json({ message: 'Server error during bulk upload' });

@@ -195,14 +195,11 @@ const addDish = async (req, res) => {
       ar_image_url = optimizedPath;
     }
 
+    let originalGlbPath = null;
     if (req.files && req.files['glb_model']) {
-      const originalPath = req.files['glb_model'][0].path;
-      const optimizedPath = await optimizeGlb(originalPath);
-      glbModelUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
-      try { fs.unlinkSync(originalPath); } catch (e) {}
-      if (optimizedPath !== originalPath) {
-        try { fs.unlinkSync(optimizedPath); } catch (e) {}
-      }
+      originalGlbPath = req.files['glb_model'][0].path;
+      // Upload unoptimized first to return quickly
+      glbModelUrl = await uploadToCloudinary(originalGlbPath, 'models/glb');
     }
 
     if (req.files && req.files['usdz_model']) {
@@ -226,6 +223,24 @@ const addDish = async (req, res) => {
     }
 
     res.status(201).json({ message: 'Dish added', id: result.insertId, dish: newDish });
+
+    // Background Optimization Pipeline
+    if (originalGlbPath) {
+      (async () => {
+        try {
+          const optimizedPath = await optimizeGlb(originalGlbPath);
+          if (optimizedPath !== originalGlbPath) {
+            const newGlbUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
+            await pool.query('UPDATE dishes SET glb_model_url = ? WHERE id = ?', [newGlbUrl, result.insertId]);
+            try { fs.unlinkSync(optimizedPath); } catch (e) {}
+          }
+        } catch (e) {
+          console.warn('Background optimization failed (keeping original):', e);
+        } finally {
+          try { fs.unlinkSync(originalGlbPath); } catch (e) {}
+        }
+      })();
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -300,16 +315,16 @@ const updateDish = async (req, res) => {
       ar_image_url = optimizedPath;
     }
 
+    let originalGlbPath = null;
     if (req.body.remove_glb_model === 'true') {
       if (glbModelUrl) await deleteFromCloudinary(glbModelUrl);
       glbModelUrl = null;
     } else if (req.files && req.files['glb_model']) {
-      const originalPath = req.files['glb_model'][0].path;
-      const optimizedPath = await optimizeGlb(originalPath);
-      glbModelUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
-      try { fs.unlinkSync(originalPath); } catch (e) {}
-      if (optimizedPath !== originalPath) {
-        try { fs.unlinkSync(optimizedPath); } catch (e) {}
+      originalGlbPath = req.files['glb_model'][0].path;
+      // Upload unoptimized first to return quickly
+      glbModelUrl = await uploadToCloudinary(originalGlbPath, 'models/glb');
+      if (oldDish.glb_model_url) {
+        try { await deleteFromCloudinary(oldDish.glb_model_url); } catch (e) {}
       }
     }
 
@@ -329,6 +344,24 @@ const updateDish = async (req, res) => {
     );
 
     res.json({ message: 'Dish updated' });
+
+    // Background Optimization Pipeline
+    if (originalGlbPath) {
+      (async () => {
+        try {
+          const optimizedPath = await optimizeGlb(originalGlbPath);
+          if (optimizedPath !== originalGlbPath) {
+            const newGlbUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
+            await pool.query('UPDATE dishes SET glb_model_url = ? WHERE id = ?', [newGlbUrl, dishId]);
+            try { fs.unlinkSync(optimizedPath); } catch (e) {}
+          }
+        } catch (e) {
+          console.warn('Background optimization failed (keeping original):', e);
+        } finally {
+          try { fs.unlinkSync(originalGlbPath); } catch (e) {}
+        }
+      })();
+    }
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
