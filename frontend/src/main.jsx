@@ -5,6 +5,33 @@ import './index.css';
 
 import * as Sentry from "@sentry/react";
 
+// --- GLOBAL CHUNK FAILURE RECOVERY ---
+window.addEventListener("error", (event) => {
+  const msg = event?.message || "";
+
+  if (
+    msg.includes("Failed to fetch dynamically imported module") ||
+    msg.includes("Importing a module script failed")
+  ) {
+    console.warn("Chunk load failed. Reloading latest version...");
+
+    // Prevent infinite reload loop
+    const hasReloaded = sessionStorage.getItem("chunk-reload");
+
+    if (!hasReloaded) {
+      sessionStorage.setItem("chunk-reload", "true");
+      window.location.reload();
+    }
+  }
+});
+
+// Clear reload flags on successful load
+window.addEventListener("load", () => {
+  sessionStorage.removeItem("chunk-reload");
+  sessionStorage.removeItem("lazy-retry");
+});
+
+
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN || "", // Replace with actual DSN in .env
   integrations: [

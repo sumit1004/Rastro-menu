@@ -2,8 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import {
   Star, Clock, Flame, Info, Search, Sparkles, Camera, ShoppingBag, Plus, Minus, X,
-  UtensilsCrossed, MapPin, Phone, ScanLine, Layers, Menu, Home, User, Image as ImageIcon,
-  AlertCircle
+  UtensilsCrossed, MapPin, Phone, ScanLine, Layers, Menu, Home, User, Image as ImageIcon
 } from 'lucide-react';
 import api, { getImageUrl } from '../services/api';
 import analyticsService from '../services/analyticsService';

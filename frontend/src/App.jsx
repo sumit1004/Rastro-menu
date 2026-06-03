@@ -6,26 +6,27 @@ import { SubscriptionProvider } from './context/SubscriptionContext';
 import Loader from './components/Loader';
 
 // Lazy Loaded Pages
-import { Suspense, lazy } from 'react';
-const LandingPage = lazy(() => import('./pages/Landing/LandingPage'));
-const PublicMenu = lazy(() => import('./menu/PublicMenu'));
-const Legal = lazy(() => import('./pages/Legal'));
+import { Suspense } from 'react';
+import { lazyRetry } from './utils/lazyRetry';
+const LandingPage = lazyRetry(() => import('./pages/Landing/LandingPage'));
+const PublicMenu = lazyRetry(() => import('./menu/PublicMenu'));
+const Legal = lazyRetry(() => import('./pages/Legal'));
 
 
-const Login = lazy(() => import('./auth/Login'));
-const Signup = lazy(() => import('./auth/Signup'));
-const ForgotPassword = lazy(() => import('./auth/ForgotPassword'));
-const ResetPassword = lazy(() => import('./auth/ResetPassword'));
-const DashboardLayout = lazy(() => import('./dashboard/DashboardLayout'));
-const DashboardOverview = lazy(() => import('./dashboard/DashboardOverview'));
-const RestaurantProfile = lazy(() => import('./dashboard/RestaurantProfile'));
-const ManageDishes = lazy(() => import('./dashboard/ManageDishes'));
-const ManageReviews = lazy(() => import('./dashboard/ManageReviews'));
-const AnalyticsOverview = lazy(() => import('./dashboard/AnalyticsOverview'));
-const QRMenu = lazy(() => import('./dashboard/QRMenu'));
-const Settings = lazy(() => import('./dashboard/Settings'));
-const AdminDashboard = lazy(() => import('./admin/AdminDashboard'));
-const Orders = lazy(() => import('./dashboard/Orders'));
+const Login = lazyRetry(() => import('./auth/Login'));
+const Signup = lazyRetry(() => import('./auth/Signup'));
+const ForgotPassword = lazyRetry(() => import('./auth/ForgotPassword'));
+const ResetPassword = lazyRetry(() => import('./auth/ResetPassword'));
+const DashboardLayout = lazyRetry(() => import('./dashboard/DashboardLayout'));
+const DashboardOverview = lazyRetry(() => import('./dashboard/DashboardOverview'));
+const RestaurantProfile = lazyRetry(() => import('./dashboard/RestaurantProfile'));
+const ManageDishes = lazyRetry(() => import('./dashboard/ManageDishes'));
+const ManageReviews = lazyRetry(() => import('./dashboard/ManageReviews'));
+const AnalyticsOverview = lazyRetry(() => import('./dashboard/AnalyticsOverview'));
+const QRMenu = lazyRetry(() => import('./dashboard/QRMenu'));
+const Settings = lazyRetry(() => import('./dashboard/Settings'));
+const AdminDashboard = lazyRetry(() => import('./admin/AdminDashboard'));
+const Orders = lazyRetry(() => import('./dashboard/Orders'));
 
 const HashScrollHandler = () => {
   const location = useLocation();
