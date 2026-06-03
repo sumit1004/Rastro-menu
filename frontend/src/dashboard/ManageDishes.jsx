@@ -224,17 +224,21 @@ const ManageDishes = () => {
       let dishId = editingId;
       if (editingId) {
         await api.put(`/dishes/${editingId}`, submitData);
+        setIsModalOpen(false);
+        // Refetch on edit to get updated data
+        await fetchDishes(restaurantId);
       } else {
         const res = await api.post('/dishes', submitData);
         dishId = res.data.id;
+        setIsModalOpen(false);
+        // Optimistic insert: if backend returned the new dish, inject it instantly
+        if (res.data.dish) {
+          setDishes(prev => [res.data.dish, ...prev]);
+        } else {
+          // Fallback: refetch if the backend didn't return the full dish
+          await fetchDishes(restaurantId);
+        }
       }
-
-      if (dishId && false) {
-        // Pairing sync removed from here, now handled in separate modal
-      }
-
-      setIsModalOpen(false);
-      await fetchDishes(restaurantId);
       await fetchSubscription(); // update usage count
     } catch (error) {
       if (error.response?.data?.code === 'LIMIT_REACHED') {
@@ -255,12 +259,16 @@ const ManageDishes = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this dish?")) {
+      // Optimistic delete: immediately remove from UI
+      const previousDishes = dishes;
+      setDishes(prev => prev.filter(d => d.id !== id));
       try {
         await api.delete(`/dishes/${id}`);
-        await fetchDishes(restaurantId);
         await fetchSubscription(); // update usage count
       } catch (error) {
-        alert('Error deleting dish');
+        // Revert on failure
+        setDishes(previousDishes);
+        alert('Error deleting dish. Please try again.');
       }
     }
   };

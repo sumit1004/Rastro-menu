@@ -1295,6 +1295,8 @@ const PublicMenu = () => {
                 alt={`A 3D model of ${selectedDish.name}`}
                 ar
                 ar-modes="webxr scene-viewer quick-look"
+                ar-scale="fixed"
+                bounds="tight"
                 environment-image="neutral"
                 shadow-intensity={isLowEndDevice ? "0.2" : "0.4"}
                 shadow-softness={isLowEndDevice ? "0.3" : "1"}

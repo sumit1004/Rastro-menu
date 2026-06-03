@@ -217,7 +217,15 @@ const addDish = async (req, res) => {
       [restaurantId, name, short_description, description, ingredients, category, price, spice_level, calories, preparation_time, imageUrl, thumbnailUrl, is_available, is_featured, ai_description, taste_tags ? (typeof taste_tags === 'string' ? taste_tags : JSON.stringify(taste_tags)) : null, ai_category, ar_enabled, ar_image_url, has_full_plate, has_half_plate, full_plate_price, half_plate_price, dish_role, cuisine_type, meal_type, glbModelUrl, usdzModelUrl, enable_3d_ar, ar_model_id]
     );
 
-    res.status(201).json({ message: 'Dish added', id: result.insertId });
+    let newDish = null;
+    try {
+      const [rows] = await pool.query('SELECT * FROM dishes WHERE id = ?', [result.insertId]);
+      if (rows.length > 0) newDish = rows[0];
+    } catch (e) {
+      console.warn("Could not fetch new dish after insert:", e);
+    }
+
+    res.status(201).json({ message: 'Dish added', id: result.insertId, dish: newDish });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Server error' });
@@ -339,8 +347,12 @@ const deleteDish = async (req, res) => {
     if (existing.length === 0) return res.status(404).json({ message: 'Dish not found or unauthorized' });
 
     const dish = existing[0];
-    if (dish.glb_model_url) await deleteFromCloudinary(dish.glb_model_url);
-    if (dish.usdz_model_url) await deleteFromCloudinary(dish.usdz_model_url);
+    try {
+      if (dish.glb_model_url) await deleteFromCloudinary(dish.glb_model_url);
+      if (dish.usdz_model_url) await deleteFromCloudinary(dish.usdz_model_url);
+    } catch (cleanupError) {
+      console.warn("Cloudinary cleanup failed during dish delete (proceeding with DB deletion):", cleanupError);
+    }
 
     await pool.query('DELETE FROM dishes WHERE id = ?', [dishId]);
     res.json({ message: 'Dish deleted' });
