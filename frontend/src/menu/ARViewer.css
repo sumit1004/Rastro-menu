@@ -1,5 +1,5 @@
 /* ============================================
-   ARViewer — Premium Fullscreen 3D/AR Viewer
+   ARViewer — Stable Premium Fullscreen Viewer
    ============================================ */
 
 /* ---------- Overlay Container ---------- */
@@ -96,21 +96,9 @@
   --poster-color: transparent;
 }
 
-/* Hide default model-viewer progress bar */
+/* Hide default model-viewer progress bar to use our custom one */
 .arv-model-viewer::part(default-progress-bar) {
   display: none;
-}
-
-/* ---------- Touch Overlay (Gesture Capture) ---------- */
-.arv-touch-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 5;
-  touch-action: none;
-  /* Transparent — lets model-viewer render beneath */
 }
 
 /* ---------- Loading State ---------- */
@@ -194,76 +182,6 @@
   transform: translateX(-50%) scale(0.96);
 }
 
-/* ---------- Gesture Hint ---------- */
-.arv-gesture-hint {
-  position: absolute;
-  bottom: max(100px, calc(env(safe-area-inset-bottom, 20px) + 80px));
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  z-index: 10;
-  pointer-events: none;
-  animation: arv-hint-fade 4s ease-out forwards;
-}
-
-.arv-gesture-hint-text {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-align: center;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
-}
-
-.arv-gesture-hint-icon {
-  width: 48px;
-  height: 48px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: arv-hint-pulse 2s ease-in-out infinite;
-}
-
-@keyframes arv-hint-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50%      { transform: scale(1.12); opacity: 1; }
-}
-
-@keyframes arv-hint-fade {
-  0%   { opacity: 1; }
-  70%  { opacity: 1; }
-  100% { opacity: 0; visibility: hidden; }
-}
-
-/* ---------- Scale Indicator Badge ---------- */
-.arv-scale-badge {
-  position: absolute;
-  top: max(80px, calc(env(safe-area-inset-top) + 60px));
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #fff;
-  padding: 0.375rem 1rem;
-  border-radius: 1rem;
-  font-size: 0.8rem;
-  font-weight: 600;
-  z-index: 15;
-  pointer-events: none;
-  animation: arv-badge-pop 0.2s ease-out;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-@keyframes arv-badge-pop {
-  from { transform: translateX(-50%) scale(0.8); opacity: 0; }
-  to   { transform: translateX(-50%) scale(1); opacity: 1; }
-}
-
 /* ---------- Recenter Button (During AR Session) ---------- */
 .arv-recenter-btn {
   position: absolute;
@@ -285,55 +203,4 @@
 
 .arv-recenter-btn:active {
   transform: scale(0.94);
-}
-
-/* ---------- Interaction Mode Indicator ---------- */
-.arv-mode-indicator {
-  position: absolute;
-  bottom: max(100px, calc(env(safe-area-inset-bottom, 20px) + 80px));
-  right: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  z-index: 10;
-}
-
-.arv-mode-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: rgba(255, 255, 255, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.arv-mode-btn.is-active {
-  background: rgba(34, 211, 238, 0.2);
-  border-color: rgba(34, 211, 238, 0.5);
-  color: #22d3ee;
-}
-
-.arv-mode-btn:active {
-  transform: scale(0.9);
-}
-
-/* ---------- Ground Shadow Ring ---------- */
-.arv-ground-ring {
-  position: absolute;
-  bottom: 15%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 120px;
-  height: 20px;
-  background: radial-gradient(ellipse, rgba(255,255,255,0.06) 0%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 1;
 }
