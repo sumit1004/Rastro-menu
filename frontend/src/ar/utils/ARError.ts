@@ -197,6 +197,48 @@ export class RecoveryFailedError extends ARError {
   }
 }
 
+export class InvalidGeometryError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidGeometryError';
+  }
+}
+
+export class InvalidPivotError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidPivotError';
+  }
+}
+
+export class OrientationDetectionError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OrientationDetectionError';
+  }
+}
+
+export class ScaleAnalysisError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ScaleAnalysisError';
+  }
+}
+
+export class MetadataGenerationError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MetadataGenerationError';
+  }
+}
+
+export class QualityAnalysisError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'QualityAnalysisError';
+  }
+}
+
 export class PlacementBlockedError extends ARError {
   constructor(message: string) {
     super(message);
