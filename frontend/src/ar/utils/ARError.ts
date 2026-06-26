@@ -145,24 +145,55 @@ export class MaterialError extends ARError {
   }
 }
 
-export class TextureError extends ARError {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TextureError';
-  }
-}
 
-export class EnvironmentError extends ARError {
-  constructor(message: string) {
-    super(message);
-    this.name = 'EnvironmentError';
-  }
-}
+
 
 export class ToneMappingError extends ARError {
   constructor(message: string) {
     super(message);
     this.name = 'ToneMappingError';
+  }
+}
+
+export class OutOfMemoryError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OutOfMemoryError';
+  }
+}
+
+export class TextureStreamingError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TextureStreamingError';
+  }
+}
+
+export class GPUTimeoutError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GPUTimeoutError';
+  }
+}
+
+export class CacheFailureError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CacheFailureError';
+  }
+}
+
+export class NetworkTimeoutError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NetworkTimeoutError';
+  }
+}
+
+export class RecoveryFailedError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RecoveryFailedError';
   }
 }
 
