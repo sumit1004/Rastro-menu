@@ -555,8 +555,12 @@ const ManageDishes = () => {
                           onClick={() => { setFormData({...formData, ar_model_id: model.id}); setShowCustomAr(false); }}
                           style={{ border: formData.ar_model_id === model.id ? '2px solid #4f46e5' : '1px solid #cbd5e1', borderRadius: '0.5rem', overflow: 'hidden', cursor: 'pointer', background: 'white' }}
                         >
-                          <div style={{ height: '100px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '0.875rem', color: '#64748b' }}>AR Model Placeholder</span>
+                          <div style={{ height: '100px', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                            {model.thumbnail_url || model.preview_image ? (
+                              <img src={getImageUrl(model.thumbnail_url || model.preview_image)} alt={model.dish_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ fontSize: '0.875rem', color: '#64748b' }}>No Preview</span>
+                            )}
                           </div>
                           <div style={{ padding: '0.5rem', fontSize: '0.875rem', textAlign: 'center', fontWeight: formData.ar_model_id === model.id ? 600 : 400 }}>
                             {model.dish_name}

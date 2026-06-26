@@ -239,6 +239,48 @@ export class QualityAnalysisError extends ARError {
   }
 }
 
+export class AssetNotFoundError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AssetNotFoundError';
+  }
+}
+
+export class MetadataMismatchError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MetadataMismatchError';
+  }
+}
+
+export class VersionMismatchError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'VersionMismatchError';
+  }
+}
+
+export class CloudinarySyncError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'CloudinarySyncError';
+  }
+}
+
+export class MigrationError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MigrationError';
+  }
+}
+
+export class RuntimePreparationError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RuntimePreparationError';
+  }
+}
+
 export class PlacementBlockedError extends ARError {
   constructor(message: string) {
     super(message);

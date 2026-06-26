@@ -685,10 +685,7 @@ const PublicMenu = () => {
 
   return (
     <div className="public-menu-container">
-      {/* Background Preload for AR Models */}
-      {preloadModels.map(url => (
-        <link key={`preload-${url}`} rel="preload" href={url} as="fetch" crossOrigin="anonymous" />
-      ))}
+      {/* Background Preload for AR Models (Disabled to prevent unused fetch warnings for native intents) */}
       {/* ========== DEBUG PANEL (only when ?debug=1) ========== */}
       {isDebugMode && (
         <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99999, backgroundColor: '#0f172a', color: '#fff', padding: '0.75rem 1rem', fontSize: '0.75rem', fontFamily: 'monospace', maxHeight: '40vh', overflowY: 'auto' }}>
@@ -1142,10 +1139,7 @@ const PublicMenu = () => {
               </div>
             )}
 
-            {/* Model Preloading */}
-            {(selectedDish.enable_3d_ar || selectedDish.ar_model_id) && selectedDish.ar_model?.glb_url && (
-              <link rel="preload" href={selectedDish.ar_model.glb_url} as="fetch" crossOrigin="anonymous" />
-            )}
+            {/* Model Preloading (Disabled to prevent unused fetch warnings for native intents) */}
 
             {/* Complete Your Meal Section */}
             {(dishSuggestions.length > 0 || loadingSuggestions) && (

@@ -175,7 +175,8 @@ const addDish = async (req, res) => {
     const ar_enabled = req.body.ar_enabled === 'true' || req.body.ar_enabled === true;
     let ar_image_url = null;
     
-    const ar_model_id = Array.isArray(req.body.ar_model_id) ? req.body.ar_model_id[0] : (req.body.ar_model_id || null);
+    let raw_ar_model_id = Array.isArray(req.body.ar_model_id) ? req.body.ar_model_id[0] : req.body.ar_model_id;
+    const ar_model_id = (raw_ar_model_id === 'null' || raw_ar_model_id === 'undefined' || raw_ar_model_id === '') ? null : (raw_ar_model_id || null);
     const enable_3d_ar = ar_model_id ? true : (req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true);
 
     let imageUrl = null;
@@ -290,7 +291,8 @@ const updateDish = async (req, res) => {
     const ar_enabled = req.body.ar_enabled === 'true' || req.body.ar_enabled === true;
     let ar_image_url = existing[0].ar_image_url;
 
-    const ar_model_id = Array.isArray(req.body.ar_model_id) ? req.body.ar_model_id[0] : (req.body.ar_model_id || null);
+    let raw_ar_model_id = Array.isArray(req.body.ar_model_id) ? req.body.ar_model_id[0] : req.body.ar_model_id;
+    const ar_model_id = (raw_ar_model_id === 'null' || raw_ar_model_id === 'undefined' || raw_ar_model_id === '') ? null : (raw_ar_model_id || null);
     const enable_3d_ar = ar_model_id ? true : (req.body.enable_3d_ar === 'true' || req.body.enable_3d_ar === true);
 
     let imageUrl = existing[0].image_url;
