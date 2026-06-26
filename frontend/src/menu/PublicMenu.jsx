@@ -12,7 +12,6 @@ import Modal from '../components/Modal';
 import Button from '../components/Button';
 import { toMoneyNumber, formatRupee, lineTotal, sumOrderItems } from '../utils/money';
 import './PublicMenu.css';
-import ARViewer from './ARViewer';
 
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -49,7 +48,6 @@ const PublicMenu = () => {
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isDropReviewOpen, setIsDropReviewOpen] = useState(false);
-  const [isARViewerOpen, setIsARViewerOpen] = useState(false);
   const isLowEndDevice = navigator.deviceMemory <= 4;
   const [hoveredStar, setHoveredStar] = useState(0);
 
@@ -484,18 +482,7 @@ const PublicMenu = () => {
 
   const handleQuickAR = (dish, e) => {
     e?.stopPropagation();
-    if ((dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url) {
-      setSelectedDish(dish);
-      setArProgress(0);
-      setArError(false);
-      setArLoading(true);
-      setIsARViewerOpen(true);
-      if (restaurant) {
-        analyticsService.trackEvent?.('ar_open', { dishId: dish.id, restaurantId: restaurant.id });
-      }
-    } else {
-      alert('No 3D Model Available for this dish.');
-    }
+    alert('AR Experience Coming Soon');
   };
 
   const getTrendingBadge = (dish, index) => {
@@ -532,9 +519,9 @@ const PublicMenu = () => {
         <p>{dish.ai_description || dish.short_description || dish.description || ''}</p>
         <div className="pm-m-dish-actions" style={{ marginTop: '0.5rem' }}>
           {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
-            <button type="button" className="pm-m-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
+            <button type="button" className="pm-m-ar-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
               <ScanLine size={16} />
-              3D Dish Experience
+              AR Experience Coming Soon
             </button>
           )}
         </div>
@@ -563,9 +550,9 @@ const PublicMenu = () => {
         </p>
         <div className="pm-m-dish-actions">
           {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
-            <button type="button" className="pm-m-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
+            <button type="button" className="pm-m-ar-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
               <ScanLine size={16} />
-              3D Dish Experience
+              AR Experience Coming Soon
             </button>
           )}
           {isDebugMode && (
@@ -638,9 +625,9 @@ const PublicMenu = () => {
         </p>
         <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
           {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
-            <button type="button" className="pm-d-ar-btn" onClick={(e) => handleQuickAR(dish, e)} style={{ padding: '0.4rem 0.5rem', width: '100%', fontSize: '0.75rem', justifyContent: 'center' }}>
+            <button type="button" className="pm-d-ar-btn" disabled style={{ padding: '0.4rem 0.5rem', width: '100%', fontSize: '0.75rem', justifyContent: 'center', opacity: 0.5, cursor: 'not-allowed' }}>
               <ScanLine size={14} />
-              3D Dish Experience
+              AR Experience Coming Soon
             </button>
           )}
         </div>
@@ -667,9 +654,9 @@ const PublicMenu = () => {
         <div className="pm-d-dish-meta">
           <span className="pm-d-dish-price">₹{getDisplayPrice(dish)}</span>
           {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
-            <button type="button" className="pm-d-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
+            <button type="button" className="pm-d-ar-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
               <ScanLine size={14} />
-              3D Dish Experience
+              AR Experience Coming Soon
             </button>
           )}
         </div>
@@ -1139,16 +1126,11 @@ const PublicMenu = () => {
             
             {(selectedDish.enable_3d_ar || selectedDish.ar_model_id) && selectedDish.ar_model?.glb_url ? (
               <Button 
-                onClick={() => {
-                  setIsARViewerOpen(true);
-                  if (restaurant) {
-                    analyticsService.trackEvent?.('ar_open', { dishId: selectedDish.id, restaurantId: restaurant.id });
-                  }
-                }}
-                style={{ width: '100%', marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', backgroundColor: '#0f172a' }}
+                disabled
+                style={{ width: '100%', marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', backgroundColor: '#0f172a', opacity: 0.5, cursor: 'not-allowed' }}
               >
                 <Camera size={18} />
-                View in 3D AR
+                AR Experience Coming Soon
               </Button>
             ) : (
               <div style={{ marginTop: '1.5rem', padding: '0.75rem', backgroundColor: '#f1f5f9', borderRadius: '0.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>
@@ -1258,15 +1240,6 @@ const PublicMenu = () => {
         })()}
       </Modal>
 
-      {/* 3D AR Viewer Modal */}
-      <ARViewer
-        dish={selectedDish}
-        isOpen={isARViewerOpen}
-        onClose={() => setIsARViewerOpen(false)}
-        isLowEndDevice={isLowEndDevice}
-        restaurant={restaurant}
-        analyticsService={analyticsService}
-      />
 
       {/* Modern Review Experience Modal */}
       {isReviewModalOpen && selectedDish && (
