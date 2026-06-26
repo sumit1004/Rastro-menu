@@ -1,10 +1,20 @@
 /**
  * @module ShadowManager
- * @description Manages real-time shadow casting and reception planes.
+ * @description Handles dynamic and baked shadows.
  * 
- * @dependencies LightManager
- * @notes Architecture scaffolding only.
+ * @dependencies RenderConfig
+ * @notes Architecture scaffolding only. No implementation.
  */
 export class ShadowManager {
-  // Shadow setup
+  enableContactShadows(): void {
+    // Scaffold
+  }
+
+  setSoftShadows(enabled: boolean): void {
+    // Scaffold
+  }
+
+  setResolution(width: number, height: number): void {
+    // Scaffold
+  }
 }

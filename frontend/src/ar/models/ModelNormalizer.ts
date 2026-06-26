@@ -1,10 +1,17 @@
 /**
  * @module ModelNormalizer
- * @description Normalizes model scales, rotations, and origins based on engine standards.
+ * @description Analyzes model orientations to generate recommended standard metadata.
  * 
- * @dependencies None
- * @notes Architecture scaffolding only.
+ * @dependencies ARLogger
+ * @notes Architecture scaffolding only. Updated for Pipeline Phase.
  */
 export class ModelNormalizer {
-  // Normalization routines
+  /**
+   * Detect origin, pivot, world center.
+   * Generates recommendedScale, recommendedRotation, recommendedGroundOffset, recommendedCameraDistance.
+   */
+  async normalizeOrientation(file: File): Promise<any> {
+    // Pipeline stub
+    return {};
+  }
 }

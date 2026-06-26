@@ -7,8 +7,28 @@
 export interface ModelMetadata {
   id: string;
   name: string;
-  url: string;
-  dimensions?: { x: number; y: number; z: number };
+  category: string;
+  cloudinaryURL: string;
+  thumbnailURL: string;
+  width: number;
+  height: number;
+  depth: number;
+  boundingBox: {
+    min: { x: number; y: number; z: number };
+    max: { x: number; y: number; z: number };
+    center: { x: number; y: number; z: number };
+  };
+  recommendedScale: number;
+  recommendedRotation: { x: number; y: number; z: number };
+  groundOffset: number;
+  vertexCount: number;
+  triangleCount: number;
+  meshCount: number;
+  textureCount: number;
+  optimized: boolean;
+  version: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface EngineConfig {

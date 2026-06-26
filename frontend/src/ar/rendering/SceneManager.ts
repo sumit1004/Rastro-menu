@@ -1,10 +1,20 @@
 /**
  * @module SceneManager
- * @description Manages the 3D scene graph and hierarchical object structures.
+ * @description Manages the single scene graph for the viewer session.
  * 
- * @dependencies None
- * @notes Architecture scaffolding only.
+ * @dependencies EnvironmentManager
+ * @notes Architecture scaffolding only. No implementation.
  */
 export class SceneManager {
-  // Scene graph operations
+  createScene(): void {
+    // Scaffold
+  }
+
+  setBackground(colorOrTexture: any): void {
+    // Scaffold
+  }
+
+  cleanup(): void {
+    // Scaffold
+  }
 }

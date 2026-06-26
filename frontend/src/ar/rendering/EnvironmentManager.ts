@@ -1,10 +1,16 @@
 /**
  * @module EnvironmentManager
- * @description Manages environment maps for reflections and ambient lighting.
+ * @description Manages environment maps and HDR settings.
  * 
- * @dependencies None
- * @notes Architecture scaffolding only.
+ * @dependencies RenderConfig
+ * @notes Architecture scaffolding only. No implementation.
  */
 export class EnvironmentManager {
-  // HDRI and env map management
+  applyPreset(preset: 'studio' | 'restaurant' | 'neutral'): void {
+    // Scaffold
+  }
+
+  loadCustomHDRI(url: string): void {
+    // Scaffold
+  }
 }

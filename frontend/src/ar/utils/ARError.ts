@@ -46,3 +46,31 @@ export class CacheError extends ARError {
     this.name = 'CacheError';
   }
 }
+
+export class RendererError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RendererError';
+  }
+}
+
+export class SceneError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SceneError';
+  }
+}
+
+export class TextureError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TextureError';
+  }
+}
+
+export class EnvironmentError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EnvironmentError';
+  }
+}
