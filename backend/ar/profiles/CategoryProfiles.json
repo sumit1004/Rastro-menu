@@ -1,0 +1,44 @@
+{
+  "Generic": {
+    "expected_width_cm": 20,
+    "expected_height_cm": 10,
+    "expected_depth_cm": 20,
+    "allowed_scale_range": [0.5, 2.0]
+  },
+  "Burger": {
+    "expected_width_cm": 12,
+    "expected_height_cm": 10,
+    "expected_depth_cm": 12,
+    "allowed_scale_range": [0.8, 1.2]
+  },
+  "Pizza": {
+    "expected_width_cm": 30,
+    "expected_height_cm": 3,
+    "expected_depth_cm": 30,
+    "allowed_scale_range": [0.8, 1.5]
+  },
+  "Coffee": {
+    "expected_width_cm": 8,
+    "expected_height_cm": 12,
+    "expected_depth_cm": 8,
+    "allowed_scale_range": [0.9, 1.1]
+  },
+  "Dessert": {
+    "expected_width_cm": 15,
+    "expected_height_cm": 8,
+    "expected_depth_cm": 15,
+    "allowed_scale_range": [0.7, 1.3]
+  },
+  "Plate": {
+    "expected_width_cm": 25,
+    "expected_height_cm": 5,
+    "expected_depth_cm": 25,
+    "allowed_scale_range": [0.8, 1.2]
+  },
+  "Bowl": {
+    "expected_width_cm": 18,
+    "expected_height_cm": 10,
+    "expected_depth_cm": 18,
+    "allowed_scale_range": [0.8, 1.2]
+  }
+}
