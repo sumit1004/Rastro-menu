@@ -11,6 +11,7 @@ import Loader from '../components/Loader';
 import Modal from '../components/Modal';
 import Button from '../components/Button';
 import { toMoneyNumber, formatRupee, lineTotal, sumOrderItems } from '../utils/money';
+import { ARLauncher } from '../ar/integration/ARLauncher';
 import './PublicMenu.css';
 
 const useDebounce = (value, delay) => {
@@ -482,7 +483,9 @@ const PublicMenu = () => {
 
   const handleQuickAR = (dish, e) => {
     e?.stopPropagation();
-    alert('AR Experience Coming Soon');
+    if (dish && (dish.enable_3d_ar || dish.ar_model_id)) {
+      ARLauncher.launch(dish.id);
+    }
   };
 
   const getTrendingBadge = (dish, index) => {
@@ -519,9 +522,9 @@ const PublicMenu = () => {
         <p>{dish.ai_description || dish.short_description || dish.description || ''}</p>
         <div className="pm-m-dish-actions" style={{ marginTop: '0.5rem' }}>
           {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
-            <button type="button" className="pm-m-ar-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+            <button type="button" className="pm-m-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
               <ScanLine size={16} />
-              AR Experience Coming Soon
+              View Dish in AR
             </button>
           )}
         </div>
@@ -550,9 +553,9 @@ const PublicMenu = () => {
         </p>
         <div className="pm-m-dish-actions">
           {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
-            <button type="button" className="pm-m-ar-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+            <button type="button" className="pm-m-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
               <ScanLine size={16} />
-              AR Experience Coming Soon
+              View Dish in AR
             </button>
           )}
           {isDebugMode && (
@@ -625,9 +628,9 @@ const PublicMenu = () => {
         </p>
         <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
           {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
-            <button type="button" className="pm-d-ar-btn" disabled style={{ padding: '0.4rem 0.5rem', width: '100%', fontSize: '0.75rem', justifyContent: 'center', opacity: 0.5, cursor: 'not-allowed' }}>
+            <button type="button" className="pm-d-ar-btn" onClick={(e) => handleQuickAR(dish, e)} style={{ padding: '0.4rem 0.5rem', width: '100%', fontSize: '0.75rem', justifyContent: 'center' }}>
               <ScanLine size={14} />
-              AR Experience Coming Soon
+              View Dish in AR
             </button>
           )}
         </div>
@@ -654,9 +657,9 @@ const PublicMenu = () => {
         <div className="pm-d-dish-meta">
           <span className="pm-d-dish-price">₹{getDisplayPrice(dish)}</span>
           {(dish.enable_3d_ar || dish.ar_model_id) && dish.ar_model?.glb_url && (
-            <button type="button" className="pm-d-ar-btn" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+            <button type="button" className="pm-d-ar-btn" onClick={(e) => handleQuickAR(dish, e)}>
               <ScanLine size={14} />
-              AR Experience Coming Soon
+              View Dish in AR
             </button>
           )}
         </div>
@@ -1126,11 +1129,11 @@ const PublicMenu = () => {
             
             {(selectedDish.enable_3d_ar || selectedDish.ar_model_id) && selectedDish.ar_model?.glb_url ? (
               <Button 
-                disabled
-                style={{ width: '100%', marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', backgroundColor: '#0f172a', opacity: 0.5, cursor: 'not-allowed' }}
+                onClick={(e) => handleQuickAR(selectedDish, e)}
+                style={{ width: '100%', marginTop: '1.5rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', backgroundColor: '#0f172a', color: 'white' }}
               >
                 <Camera size={18} />
-                AR Experience Coming Soon
+                View Dish in AR
               </Button>
             ) : (
               <div style={{ marginTop: '1.5rem', padding: '0.75rem', backgroundColor: '#f1f5f9', borderRadius: '0.5rem', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>

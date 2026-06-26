@@ -1,10 +1,20 @@
 /**
  * @module XRManager
- * @description Main interface for WebXR abstraction and management.
+ * @description Central controller enforcing a singleton XR session lifecycle.
  * 
- * @dependencies XRSession, XRCapabilities
- * @notes Architecture scaffolding only.
+ * @dependencies CapabilityDetector, SessionState, XRSessionController, FallbackEngine
+ * @notes Architecture scaffolding only. No implementation.
  */
 export class XRManager {
-  // XR abstraction API
+  async requestSession(): Promise<void> {
+    // Scaffold: Check capabilities -> Ask Permission -> Fallback Selection -> Start
+  }
+
+  endSession(): void {
+    // Scaffold: Teardown logic
+  }
+
+  recoverSession(): void {
+    // Scaffold: Recovery logic
+  }
 }

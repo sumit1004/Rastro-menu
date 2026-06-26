@@ -74,3 +74,108 @@ export class EnvironmentError extends ARError {
     this.name = 'EnvironmentError';
   }
 }
+
+export class SessionCreationError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SessionCreationError';
+  }
+}
+
+export class SecureContextError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SecureContextError';
+  }
+}
+
+export class UnsupportedBrowserError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UnsupportedBrowserError';
+  }
+}
+
+export class RecoveryError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'RecoveryError';
+  }
+}
+
+export class SurfaceNotFoundError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SurfaceNotFoundError';
+  }
+}
+
+export class TrackingLostError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TrackingLostError';
+  }
+}
+
+export class LowConfidenceError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LowConfidenceError';
+  }
+}
+
+export class InvalidSurfaceError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidSurfaceError';
+  }
+}
+
+export class PlacementBlockedError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PlacementBlockedError';
+  }
+}
+
+export class PlacementFailedError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PlacementFailedError';
+  }
+}
+
+export class AnchorLostError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AnchorLostError';
+  }
+}
+
+export class GroundAlignmentError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GroundAlignmentError';
+  }
+}
+
+export class OrientationError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'OrientationError';
+  }
+}
+
+export class ScaleCalibrationError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ScaleCalibrationError';
+  }
+}
+
+export class TrackingRecoveryError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TrackingRecoveryError';
+  }
+}
