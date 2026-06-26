@@ -131,6 +131,41 @@ export class InvalidSurfaceError extends ARError {
   }
 }
 
+export class LightingError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LightingError';
+  }
+}
+
+export class MaterialError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MaterialError';
+  }
+}
+
+export class TextureError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TextureError';
+  }
+}
+
+export class EnvironmentError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EnvironmentError';
+  }
+}
+
+export class ToneMappingError extends ARError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ToneMappingError';
+  }
+}
+
 export class PlacementBlockedError extends ARError {
   constructor(message: string) {
     super(message);
