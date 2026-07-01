@@ -78,6 +78,12 @@ CREATE TABLE IF NOT EXISTS dishes (
     model_rotation VARCHAR(50) NULL,
     model_height_offset VARCHAR(50) NULL,
     ar_model_id INT NULL,
+    ai_description TEXT NULL,
+    taste_tags TEXT NULL,
+    ai_category VARCHAR(100) NULL,
+    ai_enhanced_image VARCHAR(255) NULL,
+    ar_enabled BOOLEAN DEFAULT FALSE,
+    ar_image_url VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (restaurant_id) REFERENCES restaurants(id) ON DELETE CASCADE,
     FOREIGN KEY (ar_model_id) REFERENCES ar_model_library(id) ON DELETE SET NULL

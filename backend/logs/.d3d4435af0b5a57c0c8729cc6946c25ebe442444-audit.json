@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\sumit\\Desktop\\Rastro-menu\\backend\\logs\\.d3d4435af0b5a57c0c8729cc6946c25ebe442444-audit.json",
+    "files": [
+        {
+            "date": 1782926819490,
+            "name": "C:\\Users\\sumit\\Desktop\\Rastro-menu\\backend\\logs\\error-2026-07-01.log",
+            "hash": "d46044585baa3af73fcab7828b43e2600df92f5067a6bc8d93c37e69e93aa61c"
+        }
+    ],
+    "hashType": "sha256"
+}

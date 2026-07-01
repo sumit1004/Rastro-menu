@@ -209,6 +209,37 @@ server.listen(PORT, async () => {
     logger.warn(`[migration] Could not verify/migrate ar_model_library columns: ${migErr.message}`);
   }
 
+  // Auto-migrate: ensure dishes table has missing AI/AR columns
+  try {
+    const pool = require('./config/db');
+    const [dishCols] = await pool.query(`
+      SELECT COLUMN_NAME
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME = 'dishes'
+        AND COLUMN_NAME IN ('ai_description', 'taste_tags', 'ai_category', 'ai_enhanced_image', 'ar_enabled', 'ar_image_url')
+    `);
+    const existingDishCols = dishCols.map(c => c.COLUMN_NAME);
+    const dishColsToAdd = [
+      { name: 'ai_description', def: 'TEXT NULL' },
+      { name: 'taste_tags', def: 'TEXT NULL' },
+      { name: 'ai_category', def: 'VARCHAR(100) NULL' },
+      { name: 'ai_enhanced_image', def: 'VARCHAR(255) NULL' },
+      { name: 'ar_enabled', def: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'ar_image_url', def: 'VARCHAR(255) NULL' },
+    ].filter(c => !existingDishCols.includes(c.name));
+
+    for (const col of dishColsToAdd) {
+      await pool.query(`ALTER TABLE dishes ADD COLUMN ${col.name} ${col.def}`);
+      logger.info(`[migration] Added column dishes.${col.name}`);
+    }
+    if (dishColsToAdd.length === 0) {
+      logger.info('[migration] dishes schema is up to date.');
+    }
+  } catch (migErr) {
+    logger.warn(`[migration] Could not verify/migrate dishes columns: ${migErr.message}`);
+  }
+
   // Prevent hanging requests
   server.setTimeout(30000); // 30 seconds
 });
