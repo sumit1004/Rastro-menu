@@ -1,2 +1,5 @@
 2026-07-01T17:27:01.309Z [INFO] : Server running on port 5000 {"service":"rastromenu-api"}
 2026-07-01T17:27:01.729Z [INFO] : [migration] ar_model_library schema is up to date. {"service":"rastromenu-api"}
+2026-07-01T18:10:37.238Z [INFO] : Server running on port 5000 {"service":"rastromenu-api"}
+2026-07-01T18:10:37.609Z [INFO] : [migration] ar_model_library schema is up to date. {"service":"rastromenu-api"}
+2026-07-01T18:10:37.699Z [INFO] : [migration] dishes schema is up to date. {"service":"rastromenu-api"}
