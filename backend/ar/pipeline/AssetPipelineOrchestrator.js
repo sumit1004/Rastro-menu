@@ -2,8 +2,7 @@ const FileValidator = require('../validators/FileValidator');
 const GeometryAnalyzer = require('../analyzers/GeometryAnalyzer');
 const CategoryResolver = require('../utils/CategoryResolver');
 const TransformNormalizer = require('../normalizers/TransformNormalizer');
-const MetadataGenerator = require('../metadata/MetadataGenerator');
-const QualityScorer = require('../analyzers/QualityScorer');
+const { MetadataGenerator, QualityScorer } = require('../metadata/MetadataGenerator');
 
 class AssetPipelineOrchestrator {
   /**
