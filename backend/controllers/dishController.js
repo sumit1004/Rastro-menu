@@ -1,8 +1,10 @@
 const pool = require('../config/db');
 const { optimizeArImage } = require('../utils/arImageOptimizer');
 const { roundMoney } = require('../utils/money');
-const { uploadToCloudinary, deleteFromCloudinary } = require('../utils/cloudinary');
+const { uploadToCloudinary, deleteFromCloudinary, uploadBufferToCloudinary } = require('../utils/cloudinary');
 const { optimizeGlb } = require('../utils/glbOptimizer');
+const AssetPipelineOrchestrator = require('../ar/pipeline/AssetPipelineOrchestrator');
+const AssetVersionManager = require('../ar/versioning/AssetVersionManager');
 const fs = require('fs');
 
 // Helper to get restaurant_id from user_id
@@ -197,10 +199,23 @@ const addDish = async (req, res) => {
     }
 
     let originalGlbPath = null;
+    let pipelineMetadata = null;
+    let pipelineScore = null;
+
     if (req.files && req.files['glb_model']) {
       originalGlbPath = req.files['glb_model'][0].path;
-      // Upload unoptimized first to return quickly
-      glbModelUrl = await uploadToCloudinary(originalGlbPath, 'models/glb');
+      try {
+        const fileBuffer = fs.readFileSync(originalGlbPath);
+        const originalFilename = req.files['glb_model'][0].originalname;
+        const processed = await AssetPipelineOrchestrator.processBuffer(fileBuffer, originalFilename, category, name);
+        
+        glbModelUrl = await uploadBufferToCloudinary(processed.buffer, 'models/glb');
+        pipelineMetadata = processed.metadata;
+        pipelineScore = processed.score;
+      } catch (pipelineError) {
+        try { fs.unlinkSync(originalGlbPath); } catch (e) {}
+        return res.status(400).json({ message: pipelineError.message });
+      }
     }
 
     if (req.files && req.files['usdz_model']) {
@@ -225,22 +240,26 @@ const addDish = async (req, res) => {
 
     res.status(201).json({ message: 'Dish added', id: result.insertId, dish: newDish });
 
-    // Background Optimization Pipeline
-    if (originalGlbPath) {
-      (async () => {
-        try {
-          const optimizedPath = await optimizeGlb(originalGlbPath);
-          if (optimizedPath !== originalGlbPath) {
-            const newGlbUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
-            await pool.query('UPDATE dishes SET glb_model_url = ? WHERE id = ?', [newGlbUrl, result.insertId]);
-            try { fs.unlinkSync(optimizedPath); } catch (e) {}
-          }
-        } catch (e) {
-          console.warn('Background optimization failed (keeping original):', e);
-        } finally {
-          try { fs.unlinkSync(originalGlbPath); } catch (e) {}
-        }
-      })();
+    // Background Optimization Pipeline (Phase B Versioning)
+    if (pipelineMetadata) {
+      try {
+        const pipelineConfig = {
+          pipeline_version: '1.0',
+          normalization_version: '1.0',
+          optimization_version: '1.0',
+          profile_version: '1.0'
+        };
+        const versionId = await AssetVersionManager.registerNewVersion(result.insertId, pipelineMetadata, pipelineConfig, 'dashboard');
+        await AssetVersionManager.updateVersionState(versionId, { 
+          cloudinary_url: glbModelUrl, 
+          status: 'Certified', 
+          quality_score: pipelineScore.overall 
+        });
+      } catch (versionError) {
+        console.error('Failed to register AR version:', versionError);
+      } finally {
+        try { fs.unlinkSync(originalGlbPath); } catch (e) {}
+      }
     }
   } catch (error) {
     console.error(error);
@@ -318,15 +337,29 @@ const updateDish = async (req, res) => {
     }
 
     let originalGlbPath = null;
+    let pipelineMetadata = null;
+    let pipelineScore = null;
+
     if (req.body.remove_glb_model === 'true') {
       if (glbModelUrl) await deleteFromCloudinary(glbModelUrl);
       glbModelUrl = null;
     } else if (req.files && req.files['glb_model']) {
       originalGlbPath = req.files['glb_model'][0].path;
-      // Upload unoptimized first to return quickly
-      glbModelUrl = await uploadToCloudinary(originalGlbPath, 'models/glb');
-      if (oldDish.glb_model_url) {
-        try { await deleteFromCloudinary(oldDish.glb_model_url); } catch (e) {}
+      try {
+        const fileBuffer = fs.readFileSync(originalGlbPath);
+        const originalFilename = req.files['glb_model'][0].originalname;
+        const processed = await AssetPipelineOrchestrator.processBuffer(fileBuffer, originalFilename, category, name);
+        
+        glbModelUrl = await uploadBufferToCloudinary(processed.buffer, 'models/glb');
+        pipelineMetadata = processed.metadata;
+        pipelineScore = processed.score;
+
+        if (oldDish.glb_model_url) {
+          try { await deleteFromCloudinary(oldDish.glb_model_url); } catch (e) {}
+        }
+      } catch (pipelineError) {
+        try { fs.unlinkSync(originalGlbPath); } catch (e) {}
+        return res.status(400).json({ message: pipelineError.message });
       }
     }
 
@@ -347,22 +380,26 @@ const updateDish = async (req, res) => {
 
     res.json({ message: 'Dish updated' });
 
-    // Background Optimization Pipeline
-    if (originalGlbPath) {
-      (async () => {
-        try {
-          const optimizedPath = await optimizeGlb(originalGlbPath);
-          if (optimizedPath !== originalGlbPath) {
-            const newGlbUrl = await uploadToCloudinary(optimizedPath, 'models/glb');
-            await pool.query('UPDATE dishes SET glb_model_url = ? WHERE id = ?', [newGlbUrl, dishId]);
-            try { fs.unlinkSync(optimizedPath); } catch (e) {}
-          }
-        } catch (e) {
-          console.warn('Background optimization failed (keeping original):', e);
-        } finally {
-          try { fs.unlinkSync(originalGlbPath); } catch (e) {}
-        }
-      })();
+    // Background Optimization Pipeline (Phase B Versioning)
+    if (pipelineMetadata) {
+      try {
+        const pipelineConfig = {
+          pipeline_version: '1.0',
+          normalization_version: '1.0',
+          optimization_version: '1.0',
+          profile_version: '1.0'
+        };
+        const versionId = await AssetVersionManager.registerNewVersion(dishId, pipelineMetadata, pipelineConfig, 'dashboard');
+        await AssetVersionManager.updateVersionState(versionId, { 
+          cloudinary_url: glbModelUrl, 
+          status: 'Certified', 
+          quality_score: pipelineScore.overall 
+        });
+      } catch (versionError) {
+        console.error('Failed to register AR version:', versionError);
+      } finally {
+        try { fs.unlinkSync(originalGlbPath); } catch (e) {}
+      }
     }
   } catch (error) {
     console.error(error);

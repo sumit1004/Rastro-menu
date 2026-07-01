@@ -30,8 +30,34 @@ const deleteFromCloudinary = async (publicId, resourceType = 'raw') => {
   }
 };
 
+const uploadBufferToCloudinary = (buffer, folder = 'models/glb') => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: folder,
+        resource_type: 'raw',
+        use_filename: true,
+        unique_filename: true
+      },
+      (error, result) => {
+        if (error) {
+          console.error('Cloudinary buffer upload error:', error);
+          reject(error);
+        } else {
+          resolve(result.secure_url);
+        }
+      }
+    );
+
+    // Convert Uint8Array to Buffer if needed, then end stream
+    const buf = Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
+    uploadStream.end(buf);
+  });
+};
+
 module.exports = {
   cloudinary,
   uploadToCloudinary,
-  deleteFromCloudinary
+  deleteFromCloudinary,
+  uploadBufferToCloudinary
 };
