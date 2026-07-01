@@ -1,5 +1,5 @@
 const { NodeIO } = require('@gltf-transform/core');
-const { bounds } = require('@gltf-transform/functions');
+const { getBounds } = require('@gltf-transform/functions');
 
 class GeometryAnalyzer {
   static io = new NodeIO();
@@ -21,7 +21,7 @@ class GeometryAnalyzer {
     if (!scene) throw new Error('GLB contains no scenes.');
 
     // Calculate Bounding Box
-    const bbox = bounds(scene);
+    const bbox = getBounds(scene);
     
     // Width (X), Height (Y), Depth (Z)
     const width = bbox.max.map((v, i) => v - bbox.min[i]);
