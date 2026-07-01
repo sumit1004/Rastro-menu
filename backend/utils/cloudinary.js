@@ -2,9 +2,9 @@ const cloudinary = require('cloudinary').v2;
 require('dotenv').config();
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dd966q6vt',
+  api_key: process.env.CLOUDINARY_API_KEY || '381386619518186',
+  api_secret: process.env.CLOUDINARY_API_SECRET || 'nmpy9qMSgO_HbsvgHVjplPyUqG0'
 });
 
 const uploadToCloudinary = async (filePath, folder = 'models/glb') => {
